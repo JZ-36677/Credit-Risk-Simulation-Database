@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>信用風險模擬器 v4</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+
+  :root {
+    --bg:#0a0a0f;--surface:#13131a;--card:#1a1a24;
+    --border:#2a2a38;--accent:#7c6fff;--green:#00d4a0;
+    --yellow:#ffd166;--red:#ff4757;--orange:#ff8c42;
+    --default:#c2386b;--text:#e8e8f0;--muted:#6b6b85;
+    --score-up:#ff4757;--score-down:#00d4a0;
+  }
+  body.us-mode{--score-up:#00d4a0;--score-down:#ff4757;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;
+    background:radial-gradient(ellipse at 20% 20%,rgba(124,111,255,0.08) 0%,transparent 50%),
+               radial-gradient(ellipse at 80% 80%,rgba(255,107,157,0.06) 0%,transparent 50%);
+    pointer-events:none;z-index:0;}
+  .container{max-width:900px;margin:0 auto;padding:40px 20px 80px;position:relative;z-index:1;}
+
+  /* ── HEADER ── */
+  header{text-align:center;margin-bottom:40px;}
+  .badge{display:inline-block;background:rgba(124,111,255,0.15);border:1px solid rgba(124,111,255,0.3);
+    color:var(--accent);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+    padding:6px 14px;border-radius:20px;margin-bottom:20px;}
+  h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,5vw,48px);line-height:1.1;margin-bottom:12px;
+    background:linear-gradient(135deg,#fff 0%,rgba(124,111,255,0.9) 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .subtitle{color:var(--muted);font-size:15px;}
+
+  /* ── STEPPER ── */
+  .stepper{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:32px;}
+  .step-wrap{position:relative;padding-bottom:24px;display:flex;align-items:center;}
+  .step-bubble{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;
+    color:var(--muted);transition:all .4s;cursor:pointer;position:relative;z-index:2;flex-shrink:0;}
+  .step-bubble.active{border-color:var(--accent);background:rgba(124,111,255,0.2);color:var(--accent);box-shadow:0 0 20px rgba(124,111,255,0.3);}
+  .step-bubble.done{border-color:var(--green);background:rgba(0,212,160,0.2);color:var(--green);}
+  .step-label{font-size:10px;color:var(--muted);margin-top:6px;text-align:center;white-space:nowrap;
+    position:absolute;top:38px;left:50%;transform:translateX(-50%);transition:color .3s;}
+  .step-label.active{color:var(--accent);}
+  .step-label.done{color:var(--green);}
+  .step-line{width:60px;height:2px;background:var(--border);transition:background .4s;flex-shrink:0;}
+  .step-line.done{background:linear-gradient(90deg,var(--green),var(--accent));}
+
+  /* ── CARD ── */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px;margin-bottom:16px;transition:border-color .3s;}
+  .card:hover{border-color:rgba(124,111,255,0.2);}
+  .card-title{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;
+    color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+  .weight-badge{margin-left:auto;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:600;
+    padding:2px 8px;border-radius:10px;background:rgba(124,111,255,0.15);color:var(--accent);}
+  .note{font-size:11px;color:var(--muted);line-height:1.6;background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 12px;margin-bottom:14px;}
+  label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;}
+  input[type=number],input[type=text]{width:100%;background:var(--surface);border:1px solid var(--border);
+    border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+  input:focus{border-color:var(--accent);}
+
+  /* ── PANELS ── */
+  .step-panel{display:none;animation:panelIn .35s ease;}
+  .step-panel.active{display:block;}
+  @keyframes panelIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+
+  /* ── FACTOR 1 ── */
+  .late-selector{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
+  .late-btn{flex:1;min-width:60px;padding:10px 6px;border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;
+    text-align:center;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);transition:all .25s;font-weight:500;}
+  .late-btn.active-good{border-color:var(--green);background:rgba(0,212,160,0.12);color:var(--green);font-weight:700;}
+  .late-btn.active-warn{border-color:var(--yellow);background:rgba(255,209,102,0.12);color:var(--yellow);font-weight:700;}
+  .late-btn.active-bad{border-color:var(--orange);background:rgba(255,140,66,0.12);color:var(--orange);font-weight:700;}
+  .late-btn.active-danger{border-color:var(--red);background:rgba(255,71,87,0.12);color:var(--red);font-weight:700;}
+
+  /* ── FACTOR 2 ── */
+  .cards-list{display:flex;flex-direction:column;gap:12px;}
+  .credit-card-row{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;
+    display:flex;flex-direction:column;gap:10px;animation:slideIn .3s ease;}
+  .card-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+  @media(max-width:640px){.card-fields{grid-template-columns:1fr;}}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+  .remove-btn{background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.2);color:var(--red);
+    border-radius:8px;padding:7px;width:100%;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all .2s;}
+  .remove-btn:hover{background:rgba(255,71,87,0.18);}
+  .add-btn{background:rgba(124,111,255,0.08);border:1px dashed rgba(124,111,255,0.3);color:var(--accent);
+    border-radius:12px;padding:11px;width:100%;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;
+    font-weight:500;transition:all .2s;margin-top:4px;}
+  .add-btn:hover{background:rgba(124,111,255,0.18);border-style:solid;}
+
+  /* ── FACTOR 3/5 ── */
+  .age-selector{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;}
+  .age-btn{padding:10px 6px;border-radius:10px;font-size:11px;font-family:'DM Sans',sans-serif;text-align:center;
+    cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);transition:all .25s;line-height:1.4;}
+  .age-btn.active{border-color:var(--accent);background:rgba(124,111,255,0.12);color:var(--accent);font-weight:700;}
+  .inquiry-selector{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;}
+  .inq-btn{padding:10px 6px;border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;text-align:center;
+    cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);transition:all .25s;}
+  .inq-btn.active{border-color:var(--accent);background:rgba(124,111,255,0.12);color:var(--accent);font-weight:700;}
+
+  /* ── FACTOR 4 ── */
+  .credit-types{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+  .type-row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:10px 14px;cursor:pointer;transition:all .2s;}
+  .type-row:hover{border-color:rgba(124,111,255,0.25);}
+  .type-row.checked{border-color:var(--green);background:rgba(0,212,160,0.06);}
+  .type-check{width:18px;height:18px;border-radius:5px;border:2px solid var(--border);background:transparent;
+    display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all .2s;}
+  .type-row.checked .type-check{border-color:var(--green);background:var(--green);}
+  .type-label{font-size:13px;flex:1;}
+  .type-tag{font-size:10px;color:var(--muted);}
+
+  /* ── NAV ── */
+  .nav-row{display:flex;gap:12px;margin-top:24px;justify-content:flex-end;}
+  .btn-back{padding:12px 24px;border-radius:12px;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;
+    cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .2s;}
+  .btn-back:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-next{padding:12px 32px;border-radius:12px;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;
+    cursor:pointer;border:none;background:linear-gradient(135deg,var(--accent),#a78bfa);color:white;
+    transition:all .25s;box-shadow:0 4px 20px rgba(124,111,255,0.35);}
+  .btn-next:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(124,111,255,0.5);}
+
+  /* ── STEP 2 SCORE ── */
+  .score-result{display:flex;flex-direction:column;gap:20px;}
+  .score-big{font-family:'Bebas Neue',sans-serif;font-size:80px;line-height:1;letter-spacing:3px;transition:color .5s;}
+  .score-max{font-size:20px;color:var(--muted);}
+  .status-tag{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;margin:8px 0 16px;}
+  .status-tag.good{background:rgba(0,212,160,0.1);color:var(--green);border:1px solid rgba(0,212,160,0.2);}
+  .status-tag.warn{background:rgba(255,209,102,0.1);color:var(--yellow);border:1px solid rgba(255,209,102,0.2);}
+  .status-tag.bad{background:rgba(255,71,87,0.1);color:var(--red);border:1px solid rgba(255,71,87,0.2);}
+  .score-bar-wrap{position:relative;height:10px;background:var(--surface);border-radius:10px;overflow:visible;margin-bottom:20px;}
+  .score-bar-track{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--score-down) 0%,#ffd166 40%,var(--score-up) 80%);opacity:.5;}
+  .score-bar-indicator{position:absolute;top:-18px;width:0;height:0;border-left:7px solid transparent;
+    border-right:7px solid transparent;border-top:10px solid white;filter:drop-shadow(0 0 4px rgba(255,255,255,0.7));
+    transform:translateX(-50%);transition:left .6s cubic-bezier(0.34,1.56,0.64,1);background:transparent;border-radius:0;}
+  .zone-pills{display:flex;gap:4px;margin-top:10px;}
+  .zone-pill{flex:1;text-align:center;font-size:10px;font-weight:700;padding:5px 2px;border-radius:8px;background:rgba(255,255,255,0.04);line-height:1.5;}
+  .zone-pill small{display:block;font-size:9px;font-weight:400;opacity:.55;}
+  .factor-list{display:flex;flex-direction:column;gap:10px;}
+  .factor-row{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:10px;padding:10px 14px;}
+  .factor-icon{font-size:16px;flex-shrink:0;}
+  .factor-name{font-size:12px;color:var(--muted);flex:1;}
+  .factor-score{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;min-width:50px;text-align:right;}
+  .formula-box{font-size:10px;color:var(--muted);line-height:1.8;background:rgba(255,255,255,0.03);border-radius:8px;padding:10px 12px;margin-top:16px;}
+
+  /* ── STEP 3 ── */
+  .action-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+  @media(max-width:540px){.action-grid{grid-template-columns:1fr;}}
+  .action-btn{position:relative;padding:28px 20px;border-radius:20px;border:2px solid var(--border);
+    background:var(--card);cursor:pointer;text-align:center;transition:all .3s;overflow:hidden;}
+  .action-btn::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .3s;border-radius:18px;}
+  .action-btn.repay::before{background:radial-gradient(ellipse at 50% 0%,rgba(0,212,160,0.15) 0%,transparent 70%);}
+  .action-btn.loan::before{background:radial-gradient(ellipse at 50% 0%,rgba(124,111,255,0.15) 0%,transparent 70%);}
+  .action-btn:hover::before,.action-btn.selected::before{opacity:1;}
+  .action-btn.repay:hover,.action-btn.repay.selected{border-color:var(--green);box-shadow:0 0 30px rgba(0,212,160,0.2);}
+  .action-btn.loan:hover,.action-btn.loan.selected{border-color:var(--accent);box-shadow:0 0 30px rgba(124,111,255,0.2);}
+  .action-btn.selected{transform:translateY(-2px);}
+  .action-emoji{font-size:36px;margin-bottom:10px;display:block;}
+  .action-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;margin-bottom:6px;}
+  .action-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+  .action-check{position:absolute;top:12px;right:14px;width:22px;height:22px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:12px;opacity:0;transition:all .3s;transform:scale(0.5);}
+  .action-btn.repay .action-check{background:var(--green);}
+  .action-btn.loan .action-check{background:var(--accent);}
+  .action-btn.selected .action-check{opacity:1;transform:scale(1);}
+  .tips-list{display:flex;flex-direction:column;gap:10px;}
+  .tip{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border-radius:12px;padding:14px;
+    font-size:13px;line-height:1.5;border-left:3px solid transparent;}
+  .tip.good{border-left-color:var(--green);}
+  .tip.warn{border-left-color:var(--yellow);}
+  .tip.bad{border-left-color:var(--red);}
+  .tip-icon{font-size:18px;flex-shrink:0;}
+  .expand-panel{overflow:hidden;max-height:0;transition:max-height .5s cubic-bezier(0.4,0,0.2,1),opacity .4s ease;opacity:0;}
+  .expand-panel.open{max-height:3000px;opacity:1;}
+  .sim-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:8px;}
+  input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
+  .method-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;}
+  @media(max-width:600px){.method-grid{grid-template-columns:1fr;}}
+  .method-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;transition:all .25s;position:relative;}
+  .method-card:hover{border-color:rgba(124,111,255,0.3);}
+  .method-card.best{border-color:var(--green);}
+  .method-card.best::after{content:'推薦';position:absolute;top:10px;right:10px;font-size:9px;font-weight:700;
+    color:var(--green);background:rgba(0,212,160,0.15);padding:2px 6px;border-radius:6px;}
+  .method-name{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;margin-bottom:8px;}
+  .method-stat{font-size:11px;color:var(--muted);line-height:1.8;}
+  .method-highlight{font-size:13px;font-weight:600;}
+  .breakdown-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;}
+  .breakdown-name{flex:1;color:var(--muted);font-size:12px;}
+  .breakdown-bar-wrap{flex:2;height:6px;background:var(--surface);border-radius:6px;overflow:hidden;}
+  .breakdown-bar{height:100%;border-radius:6px;transition:width .5s ease;}
+  .breakdown-pct{width:40px;text-align:right;font-size:12px;font-weight:500;}
+  .fico-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .fico-bar-label{font-size:12px;width:80px;}
+  .fico-bar-track{flex:1;height:6px;background:var(--border);border-radius:6px;overflow:hidden;}
+  .fico-bar-fill{height:100%;border-radius:6px;}
+  .fico-bar-pct{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;width:32px;text-align:right;}
+  .collapse-toggle{font-size:11px;color:var(--accent);cursor:pointer;display:inline-flex;align-items:center;gap:4px;
+    background:none;border:none;font-family:'DM Sans',sans-serif;padding:0;margin-top:10px;}
+  .collapse-toggle:hover{opacity:.8;}
+  .collapsible{overflow:hidden;max-height:0;transition:max-height .4s ease,opacity .3s;opacity:0;}
+  .collapsible.open{max-height:500px;opacity:1;}
+  @media(max-width:640px){.age-selector{grid-template-columns:repeat(2,1fr);}.inquiry-selector{grid-template-columns:repeat(2,1fr);}}
+
+  /* ═══════════════════════════════════════════
+     匯入資料庫 FLOATING BUTTON + MODAL
+  ═══════════════════════════════════════════ */
+  .db-fab{
+    position:fixed;bottom:32px;right:32px;z-index:200;
+    background:linear-gradient(135deg,var(--accent),#a78bfa);
+    color:white;border:none;border-radius:20px;padding:14px 22px;
+    font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;
+    cursor:pointer;box-shadow:0 8px 32px rgba(124,111,255,0.45);
+    display:flex;align-items:center;gap:8px;transition:all .25s;
+  }
+  .db-fab:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(124,111,255,0.6);}
+  .db-fab-icon{font-size:18px;}
+
+  .db-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.75);
+    display:none;align-items:flex-start;justify-content:center;
+    z-index:300;padding:20px;overflow-y:auto;
+  }
+  .db-overlay.open{display:flex;}
+  .db-modal{
+    background:var(--card);border:1px solid var(--border);border-radius:24px;
+    width:100%;max-width:900px;margin:auto;padding:28px;
+    position:relative;
+  }
+  .db-close{position:absolute;top:20px;right:20px;background:none;border:none;
+    color:var(--muted);font-size:22px;cursor:pointer;transition:color .2s;}
+  .db-close:hover{color:var(--text);}
+  .db-header{margin-bottom:24px;}
+  .db-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;
+    background:linear-gradient(135deg,#fff 0%,rgba(124,111,255,0.9) 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    margin-bottom:4px;}
+  .db-sub{font-size:12px;color:var(--muted);}
+
+  /* 分布視覺 */
+  .dist-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;}
+  @media(max-width:600px){.dist-grid{grid-template-columns:repeat(2,1fr);}}
+  .dist-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;}
+  .dist-card:hover{border-color:rgba(124,111,255,0.3);}
+  .dist-card.active-premium{border-color:var(--green);box-shadow:0 0 20px rgba(0,212,160,0.15);}
+  .dist-card.active-high_risk{border-color:var(--red);box-shadow:0 0 20px rgba(255,71,87,0.15);}
+  .dist-card.active-default{border-color:var(--default);box-shadow:0 0 20px rgba(194,56,107,0.15);}
+  .dist-card.active-normal{border-color:var(--accent);box-shadow:0 0 20px rgba(124,111,255,0.15);}
+  .dist-num{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px;line-height:1;}
+  .dist-label{font-size:11px;color:var(--muted);margin-top:4px;}
+  .dist-pct{font-size:10px;margin-top:2px;font-weight:600;}
+  /* 水平分布條 */
+  .dist-bar-wrap{display:flex;border-radius:10px;overflow:hidden;height:8px;margin-bottom:20px;gap:1px;}
+  .dist-bar-seg{height:100%;transition:flex .5s;}
+
+  /* 搜尋 */
+  .db-search-row{display:flex;gap:10px;margin-bottom:16px;}
+  .db-search-input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:10px 14px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+  .db-search-input:focus{border-color:var(--accent);}
+  .db-search-btn{background:var(--accent);color:white;border:none;border-radius:10px;
+    padding:10px 18px;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:600;transition:all .2s;}
+  .db-search-btn:hover{opacity:.85;}
+
+  /* 段落tab */
+  .seg-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .seg-tab{padding:8px 16px;border-radius:10px;border:1px solid var(--border);
+    font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;color:var(--muted);}
+  .seg-tab:hover{border-color:rgba(124,111,255,0.3);color:var(--text);}
+  .seg-tab.active.premium{border-color:var(--green);background:rgba(0,212,160,0.1);color:var(--green);}
+  .seg-tab.active.high_risk{border-color:var(--red);background:rgba(255,71,87,0.1);color:var(--red);}
+  .seg-tab.active.default{border-color:var(--default);background:rgba(194,56,107,0.1);color:var(--default);}
+  .seg-tab.active.normal{border-color:var(--accent);background:rgba(124,111,255,0.1);color:var(--accent);}
+
+  /* TOP100 表格 */
+  .db-table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
+  .db-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .db-table thead th{text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;
+    color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap;}
+  .db-table tbody td{padding:10px 12px;border-bottom:1px solid var(--border);}
+  .db-table tbody tr:last-child td{border-bottom:none;}
+  .db-table tbody tr{cursor:pointer;transition:background .15s;}
+  .db-table tbody tr:hover{background:rgba(124,111,255,0.06);}
+  .db-rank{color:var(--muted);font-family:'Bebas Neue',sans-serif;font-size:14px;}
+  .db-score{font-family:'Bebas Neue',sans-serif;font-size:17px;}
+  .db-score-bar{display:inline-block;width:60px;height:4px;background:var(--border);border-radius:4px;vertical-align:middle;margin-left:6px;overflow:hidden;}
+  .db-score-fill{height:100%;border-radius:4px;}
+  .db-reco{color:var(--muted);font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .db-id{font-family:monospace;}
+  .db-num{text-align:right;font-variant-numeric:tabular-nums;}
+  .db-loading,.db-empty{padding:32px;text-align:center;color:var(--muted);font-size:13px;}
+
+  /* 客戶詳細彈窗 */
+  .detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:400;padding:16px;}
+  .detail-overlay.open{display:flex;}
+  .detail-modal{
+    background:var(--card);border:1px solid var(--border);border-radius:20px;padding:22px;
+    width:min(96vw,880px);height:min(88vh,580px);
+    display:grid;grid-template-columns:210px 1fr;gap:16px;
+    position:relative;overflow:hidden;
+  }
+  .dm-left{display:flex;flex-direction:column;overflow:hidden;}
+  .dm-right{display:flex;flex-direction:column;gap:0;overflow:hidden;}
+  .detail-close{float:right;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;}
+  .detail-id{font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:4px;}
+  .detail-score{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:2px;}
+  .detail-seg-tag{display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;margin:6px 0 16px;}
+  .dfield-list{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;}
+  .dfield-row{display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:9px;padding:8px 11px;font-size:12px;}
+  .dfield-icon{font-size:13px;flex-shrink:0;width:16px;text-align:center;}
+  .dfield-name{color:var(--muted);flex:1;}
+  .dfield-val{font-family:'Bebas Neue',sans-serif;font-size:13px;}
+  .dfm-box{font-size:11px;color:var(--muted);line-height:1.8;background:rgba(255,255,255,0.03);border-radius:9px;padding:10px 12px;margin-bottom:12px;}
+  .dfm-title{color:var(--text);font-weight:600;margin-bottom:3px;}
+  .dfm-total{color:var(--text);font-weight:700;}
+  .note-list{display:flex;flex-direction:column;gap:7px;margin-bottom:12px;}
+  .note-item{display:flex;gap:8px;align-items:flex-start;background:var(--surface);border-radius:9px;padding:9px 11px;font-size:11px;line-height:1.6;border-left:3px solid transparent;}
+  .note-item.warn{border-left-color:var(--yellow);}
+  .note-item.bad{border-left-color:var(--red);}
+  .note-icon{flex-shrink:0;}
+  .dreco-box{background:rgba(124,111,255,0.08);border:1px solid rgba(124,111,255,0.2);border-radius:11px;padding:13px;font-size:12px;line-height:1.7;}
+  .dreco-label{font-size:10px;color:var(--accent);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
+  /* 轉貸試算 */
+  .save-box{background:rgba(0,212,160,0.06);border:1px solid rgba(0,212,160,0.2);border-radius:11px;padding:13px;font-size:12px;line-height:1.8;margin-bottom:12px;}
+  .save-label{font-size:10px;color:var(--green);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
+  .save-hl{color:var(--green);font-weight:700;}
+  .save-caveat{color:var(--muted);font-size:10px;margin-top:5px;}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div class="badge">信用風險模擬器 v4 · 含資料庫模組</div>
+    <h1>信用評分<br>模擬工具</h1>
+    <p class="subtitle">三步驟了解信用狀況｜匯入資料庫可查詢真實客群 TOP100</p>
+    <div style="margin-top:16px;display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:6px 10px;">
+      <span style="font-size:11px;color:var(--muted);">漲跌配色</span>
+      <div id="colorToggle" onclick="toggleColorMode()" style="display:flex;gap:4px;cursor:pointer;">
+        <div id="modeUS" style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:transparent;color:var(--muted);border:1px solid transparent;transition:all .2s;">🇺🇸 綠漲紅跌</div>
+        <div id="modeTW" style="padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(255,71,87,0.15);color:#ff4757;border:1px solid rgba(255,71,87,0.3);transition:all .2s;">🇹🇼 紅漲綠跌</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- STEPPER -->
+  <div class="stepper">
+    <div style="display:flex;align-items:center;">
+      <div class="step-wrap"><div class="step-bubble active" id="sb1" onclick="goStep(1)">1</div><div class="step-label active" id="sl1">填資料</div></div>
+    </div>
+    <div class="step-line" id="line1"></div>
+    <div style="display:flex;align-items:center;">
+      <div class="step-wrap"><div class="step-bubble" id="sb2" onclick="goStep(2)">2</div><div class="step-label" id="sl2">看評分</div></div>
+    </div>
+    <div class="step-line" id="line2"></div>
+    <div style="display:flex;align-items:center;">
+      <div class="step-wrap"><div class="step-bubble" id="sb3" onclick="goStep(3)">3</div><div class="step-label" id="sl3">採取行動</div></div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 1 ══ -->
+  <div class="step-panel active" id="panel1">
+    <div class="card">
+      <div class="card-title"><span>💡</span> 美國 FICO 評分組成（300–850）</div>
+      <div class="fico-bar-row"><div class="fico-bar-label" style="color:#e8e8f0;font-weight:600;">還款紀錄</div><div class="fico-bar-track"><div class="fico-bar-fill" style="width:35%;background:#7c6fff"></div></div><div class="fico-bar-pct" style="color:#7c6fff">35%</div></div>
+      <div class="fico-bar-row"><div class="fico-bar-label" style="color:#e8e8f0;font-weight:600;">額度使用率</div><div class="fico-bar-track"><div class="fico-bar-fill" style="width:30%;background:#00d4a0"></div></div><div class="fico-bar-pct" style="color:#00d4a0">30%</div></div>
+      <div class="fico-bar-row"><div class="fico-bar-label" style="color:#e8e8f0;font-weight:600;">信用年齡</div><div class="fico-bar-track"><div class="fico-bar-fill" style="width:15%;background:#ffd166"></div></div><div class="fico-bar-pct" style="color:#ffd166">15%</div></div>
+      <div class="fico-bar-row"><div class="fico-bar-label" style="color:#e8e8f0;font-weight:600;">信用種類</div><div class="fico-bar-track"><div class="fico-bar-fill" style="width:10%;background:#ff8c42"></div></div><div class="fico-bar-pct" style="color:#ff8c42">10%</div></div>
+      <div class="fico-bar-row"><div class="fico-bar-label" style="color:#e8e8f0;font-weight:600;">新申請次數</div><div class="fico-bar-track"><div class="fico-bar-fill" style="width:10%;background:#ff4757"></div></div><div class="fico-bar-pct" style="color:#ff4757">10%</div></div>
+      <div id="ficoLinks" class="collapsible">
+        <div style="margin-top:14px;font-size:11px;color:#6b6b85;padding-top:12px;border-top:1px solid #2a2a38;">← 本工具模擬 FICO 五大因素</div>
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;">
+          <a href="https://www.myfico.com/credit-education/whats-in-your-credit-score" target="_blank" style="font-size:11px;color:#7c6fff;text-decoration:none;background:rgba(124,111,255,0.1);border:1px solid rgba(124,111,255,0.25);padding:4px 10px;border-radius:20px;">🔗 myFICO 官方說明</a>
+          <a href="https://www.consumerfinance.gov/ask-cfpb/what-is-a-credit-score-en-315/" target="_blank" style="font-size:11px;color:#7c6fff;text-decoration:none;background:rgba(124,111,255,0.1);border:1px solid rgba(124,111,255,0.25);padding:4px 10px;border-radius:20px;">🏛️ CFPB 消費者金融保護局</a>
+        </div>
+      </div>
+      <button class="collapse-toggle" onclick="toggleFico(this)"><span id="ficoToggleText">▼ 展開資料來源</span></button>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>📅</span> 還款紀錄 <span class="weight-badge">35%</span></div>
+      <div class="note">超過30天才算逾期（銀行才通報信用局）</div>
+      <label>過去12個月，超過30天未還款幾次？</label>
+      <div class="late-selector">
+        <div class="late-btn active-good" id="late-0" onclick="selectLate(0)">0次<br><small>✅ 良好</small></div>
+        <div class="late-btn" id="late-1" onclick="selectLate(1)">1次<br><small>⚠️ 注意</small></div>
+        <div class="late-btn" id="late-2" onclick="selectLate(2)">2–3次<br><small>🔴 偏差</small></div>
+        <div class="late-btn" id="late-3" onclick="selectLate(3)">4次以上<br><small>💀 嚴重</small></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>💳</span> 額度使用率 <span class="weight-badge">30%</span></div>
+      <div class="cards-list" id="cardsList"></div>
+      <button class="add-btn" onclick="addCard()">＋ 新增信用卡</button>
+      <div id="breakdownWrap" style="margin-top:16px;display:none;">
+        <div style="font-size:11px;color:#6b6b85;margin-bottom:10px;letter-spacing:.5px;">逐卡使用率</div>
+        <div id="breakdown"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>🕐</span> 信用年齡 <span class="weight-badge">15%</span></div>
+      <div class="note">沒在用也算，帳戶沒關閉就計入年齡</div>
+      <label>信用卡開卡到現在多久了？</label>
+      <div class="age-selector">
+        <div class="age-btn" id="age-0" onclick="selectAge(0)">不到1年</div>
+        <div class="age-btn" id="age-1" onclick="selectAge(1)">1–3年</div>
+        <div class="age-btn" id="age-2" onclick="selectAge(2)">3–7年</div>
+        <div class="age-btn" id="age-3" onclick="selectAge(3)">7–15年</div>
+        <div class="age-btn" id="age-4" onclick="selectAge(4)">15年以上</div>
+        <div class="age-btn active" id="age-5" onclick="selectAge(5)">❓ 不確定</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>🏦</span> 信用種類 <span class="weight-badge">10%</span></div>
+      <div class="credit-types" id="creditTypes">
+        <div class="type-row checked" data-type="card" onclick="toggleType(this)"><div class="type-check">✓</div><div class="type-label">💳 信用卡</div><div class="type-tag">循環信用</div></div>
+        <div class="type-row" data-type="auto" onclick="toggleType(this)"><div class="type-check"></div><div class="type-label">🚗 車貸</div><div class="type-tag">分期貸款</div></div>
+        <div class="type-row" data-type="mortgage" onclick="toggleType(this)"><div class="type-check"></div><div class="type-label">🏠 房貸</div><div class="type-tag">分期貸款</div></div>
+        <div class="type-row" data-type="student" onclick="toggleType(this)"><div class="type-check"></div><div class="type-label">🎓 學貸</div><div class="type-tag">分期貸款</div></div>
+        <div class="type-row" data-type="personal" onclick="toggleType(this)"><div class="type-check"></div><div class="type-label">💰 個人信貸</div><div class="type-tag">分期貸款</div></div>
+        <div class="type-row" data-type="other" onclick="toggleType(this)"><div class="type-check"></div><div class="type-label">📋 其他分期</div><div class="type-tag">分期貸款</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>🔍</span> 新申請次數 <span class="weight-badge">10%</span></div>
+      <label>過去12個月申請幾次信用產品？</label>
+      <div class="inquiry-selector">
+        <div class="inq-btn active" id="inq-0" onclick="selectInquiry(0)">0次<br><small id="inq-l0">+15分</small></div>
+        <div class="inq-btn" id="inq-1" onclick="selectInquiry(1)">1次<br><small style="color:#6b6b85">基準 0分</small></div>
+        <div class="inq-btn" id="inq-2" onclick="selectInquiry(2)">2–3次<br><small id="inq-l2">−15分</small></div>
+        <div class="inq-btn" id="inq-3" onclick="selectInquiry(3)">4–5次<br><small id="inq-l3">−27分</small></div>
+        <div class="inq-btn" id="inq-4" onclick="selectInquiry(4)">6次以上<br><small id="inq-l4">−39分</small></div>
+      </div>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn-next" onclick="goStep(2)">計算評分 →</button>
+    </div>
+  </div>
+
+  <!-- ══ STEP 2 ══ -->
+  <div class="step-panel" id="panel2">
+    <div class="card">
+      <div class="card-title"><span>🎯</span> 信用評分模擬結果</div>
+      <div class="score-result">
+        <div>
+          <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:4px;">
+            <div class="score-big" id="scoreNum">—</div>
+            <div class="score-max">/ 850</div>
+          </div>
+          <div id="statusTag" class="status-tag good" style="display:none"></div>
+          <div class="score-bar-wrap">
+            <div class="score-bar-track"></div>
+            <div class="score-bar-indicator" id="scoreIndicator" style="left:50%"></div>
+          </div>
+          <div class="zone-pills">
+            <span class="zone-pill" id="zp2-0">極差<small>300</small></span>
+            <span class="zone-pill" style="color:#ff8c42">尚可<small>580</small></span>
+            <span class="zone-pill" style="color:#ffd166">良好<small>670</small></span>
+            <span class="zone-pill" id="zp2-3">優秀<small>740</small></span>
+            <span class="zone-pill" id="zp2-4">頂尖<small>850</small></span>
+          </div>
+        </div>
+        <div class="factor-list" id="factorList"></div>
+      </div>
+      <div class="formula-box" id="formulaBox" style="display:none"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span>💬</span> 個人化改善建議</div>
+      <div class="tips-list" id="tipsList"><div class="tip warn"><div class="tip-icon">👆</div><div>請先回第1步填寫資料</div></div></div>
+    </div>
+    <div class="nav-row">
+      <button class="btn-back" onclick="goStep(1)">← 返回修改</button>
+      <button class="btn-next" onclick="goStep(3)">採取行動 →</button>
+    </div>
+  </div>
+
+  <!-- ══ STEP 3 ══ -->
+  <div class="step-panel" id="panel3">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title"><span>🎯</span> 即時信用評分</div>
+      <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:4px;">
+        <div class="score-big" id="scoreNum3">—</div>
+        <div class="score-max">/ 850</div>
+      </div>
+      <div id="statusTag3" class="status-tag good" style="display:none"></div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-track"></div>
+        <div class="score-bar-indicator" id="scoreIndicator3" style="left:50%"></div>
+      </div>
+      <div class="factor-list" id="factorList3" style="margin-top:16px;"></div>
+    </div>
+
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">你現在想做什麼？</div>
+    <div class="action-grid">
+      <div class="action-btn repay" id="actionRepay" onclick="selectAction('repay')">
+        <div class="action-check">✓</div>
+        <span class="action-emoji">💳</span>
+        <div class="action-title">還信用卡</div>
+        <div class="action-desc">雪崩法 vs 雪球法試算</div>
+      </div>
+      <div class="action-btn loan" id="actionLoan" onclick="selectAction('loan')">
+        <div class="action-check">✓</div>
+        <span class="action-emoji">🏦</span>
+        <div class="action-title">申請貸款</div>
+        <div class="action-desc">依評分推薦利率範圍</div>
+      </div>
+    </div>
+
+    <div class="expand-panel" id="expandRepay">
+      <div class="card" style="border-color:rgba(0,212,160,0.25);">
+        <div class="card-title"><span>💰</span> 還款試算</div>
+        <div class="sim-label"><span>這個月還款金額</span></div>
+        <input type="range" id="simSlider" min="0" max="100000" step="100" value="0" oninput="syncFromSlider()">
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button onclick="fillAmount('min')" style="flex:1;padding:8px 6px;border-radius:10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid rgba(255,209,102,0.35);background:rgba(255,209,102,0.08);color:#ffd166;font-family:'DM Sans',sans-serif;">⚡ 最低還款<br><span id="minPayLabel" style="font-size:10px;font-weight:400;">NT$ —</span></button>
+          <button onclick="fillAmount('half')" style="flex:1;padding:8px 6px;border-radius:10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid rgba(124,111,255,0.35);background:rgba(124,111,255,0.08);color:#7c6fff;font-family:'DM Sans',sans-serif;">💡 還一半<br><span id="halfPayLabel" style="font-size:10px;font-weight:400;">NT$ —</span></button>
+          <button onclick="fillAmount('full')" style="flex:1;padding:8px 6px;border-radius:10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid rgba(0,212,160,0.35);background:rgba(0,212,160,0.08);color:#00d4a0;font-family:'DM Sans',sans-serif;">✅ 全額繳清<br><span id="fullPayLabel" style="font-size:10px;font-weight:400;">NT$ —</span></button>
+        </div>
+        <div style="margin-top:10px;">
+          <label>還款金額（NT$）</label>
+          <input type="number" id="simInput" value="0" min="0" step="100" oninput="syncFromInput()" style="margin-top:4px;">
+        </div>
+        <div id="methodGrid" style="margin-top:16px;"></div>
+        <div id="simResult" style="margin-top:12px;background:#13131a;border-radius:12px;padding:14px;font-size:12px;line-height:1.8;display:none;"></div>
+      </div>
+    </div>
+
+    <div class="expand-panel" id="expandLoan">
+      <div class="card" style="border-color:rgba(124,111,255,0.25);">
+        <div class="card-title"><span>🏦</span> 個人信貸試算</div>
+        <div id="loanRateSuggestion" style="background:rgba(124,111,255,0.08);border:1px solid rgba(124,111,255,0.2);border-radius:12px;padding:14px;margin-bottom:16px;font-size:12px;line-height:1.8;">
+          <div style="color:#7c6fff;font-weight:600;margin-bottom:6px;">💡 根據你的信用評分，參考利率範圍：</div>
+          <div id="loanRateText">計算中...</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div><label>借款金額（NT$）</label><input type="number" id="loanAmount" value="300000" min="10000" step="10000" oninput="updateLoan()" style="margin-top:4px;"></div>
+          <div><label>月薪（NT$）</label><input type="number" id="monthlySalary" placeholder="例：40000" min="0" step="1000" oninput="updateLoan()" style="margin-top:4px;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div><label>還款期數</label><select id="loanTerm" onchange="updateLoan()" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;margin-top:4px;"><option value="12">12個月</option><option value="24">24個月</option><option value="36" selected>36個月</option><option value="48">48個月</option><option value="60">60個月</option><option value="84">84個月</option></select></div>
+          <div><label>年利率（%）</label><input type="number" id="loanRate" value="8" min="2" max="15" step="0.5" oninput="updateLoan()" style="margin-top:4px;"></div>
+        </div>
+        <div id="loanResult" style="background:#13131a;border-radius:14px;padding:18px;display:none;">
+          <div style="text-align:center;background:#1a1a24;border-radius:10px;padding:14px;margin-bottom:10px;">
+            <div style="font-size:11px;color:#6b6b85;margin-bottom:4px;">每月還款</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:#7c6fff;letter-spacing:2px;" id="loanMonthly">—</div>
+            <div style="font-size:11px;color:#6b6b85;">NT$</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div style="text-align:center;background:#1a1a24;border-radius:10px;padding:12px;"><div style="font-size:11px;color:#6b6b85;margin-bottom:4px;">總還款</div><div style="font-family:'Bebas Neue',sans-serif;font-size:22px;" id="loanTotal">—</div></div>
+            <div style="text-align:center;background:#1a1a24;border-radius:10px;padding:12px;"><div style="font-size:11px;color:#6b6b85;margin-bottom:4px;">總利息</div><div style="font-family:'Bebas Neue',sans-serif;font-size:22px;" id="loanInterest">—</div></div>
+          </div>
+          <div id="dtiResult" style="margin-top:12px;font-size:12px;line-height:1.8;display:none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-row" style="justify-content:flex-start;">
+      <button class="btn-back" onclick="goStep(2)">← 返回評分</button>
+    </div>
+  </div>
+</div>
+
+<!-- 匯入資料庫 FAB -->
+<button class="db-fab" onclick="openDBModal()">
+  <span class="db-fab-icon">🗄️</span> 匯入資料庫
+</button>
+
+<!-- 資料庫彈窗 -->
+<div class="db-overlay" id="dbOverlay" onclick="if(event.target===this)closeDBModal()">
+<div class="db-modal">
+  <button class="db-close" onclick="closeDBModal()">✕</button>
+  <div class="db-header" style="display:flex;align-items:flex-start;justify-content:space-between;">
+    <div>
+      <div class="db-title">客群分析 · 風控儀表板</div>
+      <div class="db-sub">LendingClub 887,379筆 · 批次評分 v2 · 即時 API · <span style="color:var(--green)">●</span> 連線中</div>
+    </div>
+    <button onclick="openChartModal()" style="flex-shrink:0;margin-top:4px;margin-right:32px;background:rgba(0,212,160,0.1);border:1px solid rgba(0,212,160,0.3);color:var(--green);padding:7px 14px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.5px;white-space:nowrap;">📊 分析報告</button>
+  </div>
+
+  <!-- 分布視覺 -->
+  <div class="dist-grid" id="distGrid">
+    <div class="dist-card" id="dc-premium" onclick="switchSeg('premium')">
+      <div class="dist-num" style="color:var(--green)">321,503</div>
+      <div class="dist-label">🟢 優質客戶</div>
+      <div class="dist-pct" style="color:var(--green)">36.2%</div>
+    </div>
+    <div class="dist-card" id="dc-high_risk" onclick="switchSeg('high_risk')">
+      <div class="dist-num" style="color:var(--red)">31,336</div>
+      <div class="dist-label">🔴 高風險</div>
+      <div class="dist-pct" style="color:var(--red)">3.5%</div>
+    </div>
+    <div class="dist-card" id="dc-default" onclick="switchSeg('default')">
+      <div class="dist-num" style="color:var(--default)">55,470</div>
+      <div class="dist-label">⚫ 違約</div>
+      <div class="dist-pct" style="color:var(--default)">6.2%</div>
+    </div>
+    <div class="dist-card" id="dc-normal" onclick="switchSeg('normal')">
+      <div class="dist-num" style="color:var(--accent)">479,070</div>
+      <div class="dist-label">⬜ 正常</div>
+      <div class="dist-pct" style="color:var(--accent)">54.0%</div>
+    </div>
+  </div>
+  <!-- 水平比例條 -->
+  <div class="dist-bar-wrap" style="margin-bottom:20px;">
+    <div class="dist-bar-seg" style="flex:321503;background:var(--green);opacity:.7;border-radius:10px 0 0 10px;"></div>
+    <div class="dist-bar-seg" style="flex:31336;background:var(--red);opacity:.7;"></div>
+    <div class="dist-bar-seg" style="flex:55470;background:var(--default);opacity:.7;"></div>
+    <div class="dist-bar-seg" style="flex:479070;background:var(--accent);opacity:.5;border-radius:0 10px 10px 0;"></div>
+  </div>
+
+  <!-- 搜尋列 -->
+  <div class="db-search-row">
+    <input class="db-search-input" id="dbSearchInput" placeholder="輸入客戶 ID 直接查詢..." onkeydown="if(event.key==='Enter')dbSearchCustomer()">
+    <button class="db-search-btn" onclick="dbSearchCustomer()">🔍 查詢</button>
+  </div>
+
+  <!-- Segment tab -->
+  <div class="seg-tabs" id="segTabs">
+    <div class="seg-tab active premium" data-seg="premium" onclick="switchSeg('premium')">🟢 優質 TOP100</div>
+    <div class="seg-tab high_risk" data-seg="high_risk" onclick="switchSeg('high_risk')">🔴 高風險 TOP100</div>
+    <div class="seg-tab default" data-seg="default" onclick="switchSeg('default')">⚫ 違約 TOP100</div>
+  </div>
+
+  <!-- 表格 -->
+  <div class="db-table-wrap">
+    <table class="db-table">
+      <thead>
+        <tr>
+          <th>#</th><th>客戶ID</th><th>評分</th>
+          <th style="text-align:right">年收入(NT$)</th>
+          <th style="text-align:right">循環餘額</th>
+          <th style="text-align:right">負債比</th>
+          <th>建議行動</th>
+        </tr>
+      </thead>
+      <tbody id="dbTableBody">
+        <tr><td colspan="7" class="db-loading">點選上方客群卡片或Tab載入資料...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- 客戶詳細彈窗 -->
+<div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+<div class="detail-modal" id="detailModal">
+  <button class="detail-close" onclick="closeDetail()">✕</button>
+  <div class="db-loading">載入中...</div>
+</div>
+</div>
+
+<script>
+// ═══════════════ COLOR MODE ═══════════════
+let isTWMode = true;
+function toggleColorMode() {
+  isTWMode = !isTWMode;
+  document.body.classList.toggle('us-mode', !isTWMode);
+  document.getElementById('modeUS').style.cssText = isTWMode ?
+    'padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:transparent;color:var(--muted);border:1px solid transparent;' :
+    'padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(0,212,160,0.15);color:#00d4a0;border:1px solid rgba(0,212,160,0.3);';
+  document.getElementById('modeTW').style.cssText = isTWMode ?
+    'padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(255,71,87,0.15);color:#ff4757;border:1px solid rgba(255,71,87,0.3);' :
+    'padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:transparent;color:var(--muted);border:1px solid transparent;';
+  updateScoreUI(calcScore().total);
+}
+function upColor(){ return isTWMode?'#ff4757':'#00d4a0'; }
+function downColor(){ return isTWMode?'#00d4a0':'#ff4757'; }
+
+// ═══════════════ STATE ═══════════════
+let cards = [{ name:'卡片 1', limit:100000, balance:30000, rate:15 }];
+let latePayments = 0;
+let creditAgeIdx = 5;
+let creditTypes  = new Set(['card']);
+let inquiryIdx   = 0;
+const ageScores  = [-63,-35,-15,0,20,-15];
+const ageLabels  = ['不到1年','1–3年','3–7年','7–15年','15年以上','不確定'];
+const inquiryScores = [15,0,-15,-27,-39];
+
+// ═══════════════ STEPPER ═══════════════
+function goStep(n){
+  if(n>=2){updateScore();updateTips();const s=calcScore().total;updateLoanRateSuggestion(s);}
+  ['panel1','panel2','panel3'].forEach((id,i)=>document.getElementById(id).classList.toggle('active',i+1===n));
+  [1,2,3].forEach(i=>{
+    const sb=document.getElementById('sb'+i),sl=document.getElementById('sl'+i);
+    sb.className='step-bubble '+(i<n?'done':i===n?'active':'');
+    sl.className='step-label '+(i<n?'done':i===n?'active':'');
+  });
+  [1,2].forEach(i=>document.getElementById('line'+i).classList.toggle('done',i<n));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ═══════════════ FACTORS ═══════════════
+function selectLate(idx){
+  latePayments=idx;
+  const cls=['active-good','active-warn','active-bad','active-danger'];
+  [0,1,2,3].forEach(i=>{const b=document.getElementById('late-'+i);b.className='late-btn';if(i===idx)b.classList.add(cls[i]);});
+}
+function getLateScore(){ return [0,-38,-76,-111][latePayments]; }
+
+// cards
+function renderCards(){
+  const list=document.getElementById('cardsList'); list.innerHTML='';
+  cards.forEach((c,i)=>{
+    const row=document.createElement('div'); row.className='credit-card-row';
+    row.innerHTML=`<div><label>卡片名稱</label><input type="text" value="${c.name}" oninput="cards[${i}].name=this.value"></div>
+    <div class="card-fields">
+      <div><label>總額度（NT$）</label><input type="number" value="${c.limit}" oninput="cards[${i}].limit=+this.value||0;updateBreakdown()" style="border-color:rgba(124,111,255,0.3)"></div>
+      <div><label>已使用（NT$）</label><input type="number" value="${c.balance}" oninput="cards[${i}].balance=+this.value||0;updateBreakdown()" style="border-color:rgba(255,107,157,0.3)"></div>
+      <div><label>年循環利率（%）</label><input type="number" value="${c.rate||15}" min="5" max="15" step="0.5" oninput="cards[${i}].rate=+this.value||15" style="border-color:rgba(255,209,102,0.3)"></div>
+    </div>
+    ${cards.length>1?`<button class="remove-btn" onclick="removeCard(${i})">✕ 移除</button>`:''}`;
+    list.appendChild(row);
+  });
+}
+function addCard(){ if(cards.length>=6)return; cards.push({name:`卡片 ${cards.length+1}`,limit:50000,balance:10000,rate:15}); renderCards();updateBreakdown(); }
+function removeCard(i){ cards.splice(i,1); renderCards();updateBreakdown(); }
+function getTotalUtil(){ const l=cards.reduce((s,c)=>s+c.limit,0),b=cards.reduce((s,c)=>s+c.balance,0); return l>0?(b/l)*100:0; }
+function getColor(pct){ if(pct<=10)return'#00d4a0';if(pct<=30)return'#00d4a0';if(pct<=50)return'#ffd166';if(pct<=75)return'#ff8c42';return'#ff4757'; }
+function getUtilScore(u){
+  if(u<=0)return 785;if(u<=10)return 780;if(u<=20)return 765;if(u<=30)return 745;
+  if(u<=40)return 725;if(u<=50)return 705;if(u<=60)return 685;if(u<=75)return 660;
+  if(u<=90)return 640;if(u<=99)return 625;return 620;
+}
+function updateBreakdown(){
+  const w=document.getElementById('breakdownWrap'),b=document.getElementById('breakdown');
+  if(!cards.length){w.style.display='none';return;} w.style.display='block'; b.innerHTML='';
+  cards.forEach(c=>{
+    const pct=c.limit>0?Math.min((c.balance/c.limit)*100,100):0,color=getColor(pct);
+    const row=document.createElement('div');row.className='breakdown-row';
+    row.innerHTML=`<div class="breakdown-name">${c.name}</div><div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${pct}%;background:${color}"></div></div><div class="breakdown-pct" style="color:${color}">${pct.toFixed(0)}%</div>`;
+    b.appendChild(row);
+  });
+}
+
+function selectAge(idx){ creditAgeIdx=idx; [0,1,2,3,4,5].forEach(i=>document.getElementById('age-'+i).classList.toggle('active',i===idx)); }
+function getAgeScore(){ return ageScores[creditAgeIdx]; }
+function toggleType(el){ if(el.dataset.type==='card')return; el.classList.toggle('checked'); const c=el.querySelector('.type-check'); if(el.classList.contains('checked')){creditTypes.add(el.dataset.type);c.textContent='✓';}else{creditTypes.delete(el.dataset.type);c.textContent='';} }
+function getTypeScore(){ const n=creditTypes.size; if(n<=1)return 0;if(n===2)return 15;if(n===3)return 22;return 30; }
+function selectInquiry(idx){ inquiryIdx=idx; [0,1,2,3,4].forEach(i=>document.getElementById('inq-'+i).classList.toggle('active',i===idx)); }
+function getInquiryScore(){ return inquiryScores[inquiryIdx]; }
+
+// ═══════════════ SCORE ═══════════════
+function calcScore(){
+  const util=getTotalUtil();
+  const base=getUtilScore(util);
+  const lateScore=getLateScore(),ageScore=getAgeScore(),typeScore=getTypeScore(),inqScore=getInquiryScore();
+  const total=Math.max(300,Math.min(850,base+lateScore+ageScore+typeScore+inqScore));
+  return{total,base,lateScore,ageScore,typeScore,inqScore,util};
+}
+function getScoreMeta(t){
+  if(t>=780)return{color:upColor(),tagClass:'good',tagText:'✦ 頂尖'};
+  if(t>=740)return{color:upColor(),tagClass:'good',tagText:'✦ 優秀'};
+  if(t>=670)return{color:upColor(),tagClass:'good',tagText:'✦ 良好'};
+  if(t>=580)return{color:'#ffd166',tagClass:'warn',tagText:'⚠ 尚可'};
+  if(t>=450)return{color:'#ff8c42',tagClass:'warn',tagText:'✕ 需改善'};
+  return{color:downColor(),tagClass:'bad',tagText:'🚨 高度風險'};
+}
+function updateScoreUI(total){
+  const meta=getScoreMeta(total);
+  const pct=((total-300)/550)*100;
+  ['scoreNum','scoreNum3'].forEach(id=>{const el=document.getElementById(id);if(el){el.textContent=total;el.style.color=meta.color;}});
+  ['statusTag','statusTag3'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display='inline-flex';el.className=`status-tag ${meta.tagClass}`;el.textContent=meta.tagText;}});
+  ['scoreIndicator','scoreIndicator3'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.left=pct+'%';});
+}
+function updateScore(){
+  const{total,base,lateScore,ageScore,typeScore,inqScore,util}=calcScore();
+  updateScoreUI(total);
+  const meta=getScoreMeta(total);
+  const factors=[
+    {icon:'📅',name:`還款紀錄（35%）`,score:lateScore},
+    {icon:'💳',name:`使用率 ${util.toFixed(1)}%（30%）`,score:base,isBase:true},
+    {icon:'🕐',name:`${ageLabels[creditAgeIdx]}（15%）`,score:ageScore},
+    {icon:'🏦',name:`信用種類 ${creditTypes.size}種（10%）`,score:typeScore},
+    {icon:'🔍',name:`新申請次數（10%）`,score:inqScore},
+  ];
+  ['factorList','factorList3'].forEach(id=>{
+    const fl=document.getElementById(id); if(!fl)return; fl.innerHTML='';
+    factors.forEach(f=>{
+      const sc=f.isBase?meta.color:f.score>0?upColor():f.score<0?downColor():'#6b6b85';
+      const div=document.createElement('div');div.className='factor-row';
+      div.innerHTML=`<div class="factor-icon">${f.icon}</div><div class="factor-name">${f.name}</div><div class="factor-score" style="color:${sc}">${f.isBase?f.score:(f.score>=0?'+':'')+f.score}</div>`;
+      fl.appendChild(div);
+    });
+  });
+  const lateL=['0次逾期→不扣分','1次逾期→−38分','2–3次→−76分','4次以上→−111分'];
+  const inqL=['0次→+15分','1次→基準','2–3次→−15分','4–5次→−27分','6次以上→−39分'];
+  const fb=document.getElementById('formulaBox');
+  fb.style.display='block';
+  fb.innerHTML=`📐 <strong style="color:#e8e8f0">推算過程</strong><br>
+    使用率 ${util.toFixed(1)}% → 基礎分 ${base}<br>
+    還款紀錄：${lateL[latePayments]}<br>
+    信用年齡：${ageLabels[creditAgeIdx]} → ${ageScore>=0?'+':''}${ageScore}分<br>
+    信用種類：${creditTypes.size}種 → ${typeScore>=0?'+':''}${typeScore}分<br>
+    新申請：${inqL[inquiryIdx]}<br>
+    = 模擬評分 <strong style="color:${meta.color};font-size:13px;">${total}</strong>（美國平均714分，${total>=714?'高於平均 ✦':`差距 ${714-total} 分`}）<br>
+    <span style="opacity:.5;font-size:10px;">※ 本工具為模擬參考，實際分數由各信用局計算</span>`;
+}
+
+function updateTips(){
+  const{total,util}=calcScore();
+  const tips=[];
+  if(latePayments>0)tips.push({type:'bad',icon:'🚨',text:'逾期紀錄是影響評分最大的因素（35%）。建議設定自動扣繳。'});
+  if(util>50)tips.push({type:'bad',icon:'💳',text:`使用率 ${util.toFixed(0)}%，建議降至30%以下，是最快提升評分的方式。`});
+  else if(util>30)tips.push({type:'warn',icon:'⚠️',text:`使用率 ${util.toFixed(0)}%，略超建議30%。`});
+  else tips.push({type:'good',icon:'✅',text:`使用率 ${util.toFixed(0)}%，健康範圍！`});
+  if(total>=740)tips.push({type:'good',icon:'🎉',text:`評分 ${total} 分（優秀），可申請大多數貸款並獲得最優利率。`});
+  else if(total<580)tips.push({type:'bad',icon:'📉',text:`評分 ${total} 分，建議先降低使用率並清除逾期紀錄。`});
+  const list=document.getElementById('tipsList');list.innerHTML='';
+  tips.forEach(t=>{const d=document.createElement('div');d.className=`tip ${t.type}`;d.innerHTML=`<div class="tip-icon">${t.icon}</div><div>${t.text}</div>`;list.appendChild(d);});
+}
+
+// ═══════════════ ACTION / REPAY / LOAN ═══════════════
+function selectAction(type){
+  const btn=document.getElementById(type==='repay'?'actionRepay':'actionLoan');
+  const panel=document.getElementById(type==='repay'?'expandRepay':'expandLoan');
+  const isOpen=panel.classList.contains('open');
+  btn.classList.toggle('selected',!isOpen);
+  panel.classList.toggle('open',!isOpen);
+  if(!isOpen){if(type==='repay')updateSim();else updateLoan();setTimeout(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}),100);}
+}
+function fillAmount(type){
+  const tb=cards.reduce((s,c)=>s+c.balance,0);
+  const min=Math.max(100,Math.round(tb*0.02));
+  let val=type==='min'?min:type==='half'?Math.round(tb/2):tb;
+  document.getElementById('simInput').value=val;document.getElementById('simSlider').value=val;updateSim();
+}
+function syncFromSlider(){const v=+document.getElementById('simSlider').value;document.getElementById('simInput').value=v;updateSim();}
+function syncFromInput(){const tb=cards.reduce((s,c)=>s+c.balance,0);let v=Math.max(0,Math.min(+document.getElementById('simInput').value||0,tb));document.getElementById('simSlider').value=v;updateSim();}
+function updateSim(){
+  const tb=cards.reduce((s,c)=>s+c.balance,0);
+  const min=Math.max(100,Math.round(tb*0.02));
+  document.getElementById('minPayLabel').textContent='NT$ '+min.toLocaleString();
+  document.getElementById('halfPayLabel').textContent='NT$ '+Math.round(tb/2).toLocaleString();
+  document.getElementById('fullPayLabel').textContent='NT$ '+tb.toLocaleString();
+  const pay=+document.getElementById('simInput').value||0;
+  if(tb<=0||pay<=0){document.getElementById('methodGrid').innerHTML='';document.getElementById('simResult').style.display='none';return;}
+  function calcRepay(mp,bals,strategy){
+    let bl=bals.map(b=>({...b}));let m=0,ti=0;
+    while(m<360){const rem=bl.reduce((s,b)=>s+b.balance,0);if(rem<=0)break;
+    bl.forEach(b=>{const i=b.balance*b.rate;b.balance+=i;ti+=i;});
+    let r=mp,sorted=[...bl];
+    if(strategy==='avalanche')sorted.sort((a,b)=>b.rate-a.rate);else sorted.sort((a,b)=>a.balance-b.balance);
+    for(const b of sorted){const p=Math.min(b.balance,r);b.balance-=p;r-=p;if(r<=0)break;}m++;}
+    return{months:m,totalInterest:Math.round(ti)};
+  }
+  const bals=cards.map(c=>({balance:c.balance,limit:c.limit,rate:(c.rate||15)/1200}));
+  const rv=calcRepay(pay,bals,'avalanche'),rs=calcRepay(pay,bals,'snowball');
+  const minInt=Math.min(rv.totalInterest,rs.totalInterest);
+  const grid=document.getElementById('methodGrid');grid.innerHTML='';grid.className='method-grid';
+  [{name:'🏔️ 雪崩法',desc:'高利率先還，總利息最少',r:rv},{name:'❄️ 雪球法',desc:'小金額先還，心理成就感高',r:rs}].forEach(m=>{
+    const div=document.createElement('div');div.className='method-card'+(m.r.totalInterest===minInt?' best':'');
+    div.innerHTML=`<div class="method-name">${m.name}</div><div class="method-stat">還完：<span class="method-highlight" style="color:#00d4a0">${m.r.months} 個月</span><br>總利息：<span class="method-highlight" style="color:#ff4757">NT$${m.r.totalInterest.toLocaleString()}</span><br><span style="color:#6b6b85;font-size:11px;">${m.desc}</span></div>`;
+    grid.appendChild(div);
+  });
+  document.getElementById('simResult').style.display='block';
+  document.getElementById('simResult').innerHTML=pay>=tb?'<span style="color:#00d4a0">✅ 全額繳清 → 使用率歸零，評分大幅提升</span>':'<span style="color:#ffd166">💳 部分繳清 → 不扣分，但債務持續累積利息</span>';
+}
+const loanRateByScore=[
+  {min:780,label:'頂尖',rate:{min:2,max:4}},
+  {min:740,label:'優秀',rate:{min:3,max:5}},
+  {min:670,label:'良好',rate:{min:5,max:8}},
+  {min:580,label:'尚可',rate:{min:8,max:12}},
+  {min:450,label:'需改善',rate:{min:12,max:15}},
+  {min:300,label:'高度風險',rate:null}
+];
+function updateLoanRateSuggestion(score){
+  const el=document.getElementById('loanRateText');
+  const m=loanRateByScore.find(r=>score>=r.min);if(!m)return;
+  if(!m.rate){el.innerHTML=`<span style="color:#ff4757">評分 ${score}（${m.label}）→ 申請可能被拒，建議先改善信用狀況</span>`;document.getElementById('loanRate').value=15;}
+  else{el.innerHTML=`評分 <strong style="color:#7c6fff">${score}</strong>（${m.label}）→ 參考利率約 <strong style="color:#ffd166">${m.rate.min}%–${m.rate.max}%</strong>`;document.getElementById('loanRate').value=((m.rate.min+m.rate.max)/2).toFixed(1);}
+  updateLoan();
+}
+function updateLoan(){
+  const amt=+document.getElementById('loanAmount').value||0,term=+document.getElementById('loanTerm').value||36;
+  const rate=+document.getElementById('loanRate').value||8,mr=rate/1200;
+  const salary=+document.getElementById('monthlySalary').value||0;
+  if(amt<=0){document.getElementById('loanResult').style.display='none';return;}
+  const mp=mr===0?amt/term:amt*mr*Math.pow(1+mr,term)/(Math.pow(1+mr,term)-1);
+  const tp=mp*term,ti=tp-amt;
+  document.getElementById('loanResult').style.display='block';
+  document.getElementById('loanMonthly').textContent=Math.round(mp).toLocaleString();
+  document.getElementById('loanTotal').textContent=Math.round(tp).toLocaleString();
+  document.getElementById('loanInterest').textContent=Math.round(ti).toLocaleString();
+  document.getElementById('loanInterest').style.color=ti>0?'#ff4757':'#00d4a0';
+  const de=document.getElementById('dtiResult');
+  if(salary>0){const dti=(mp/salary*100).toFixed(1);const dc=dti>40?'#ff4757':dti>30?'#ffd166':'#00d4a0';de.style.display='block';de.innerHTML=`DTI：${dti}% <span style="color:${dc}">${dti>40?'⚠️ 超過40%，銀行核貸困難':dti>30?'注意：DTI偏高':'✅ 健康'}</span>`;}
+  else de.style.display='none';
+}
+
+// ═══════════════ FICO COLLAPSE ═══════════════
+function toggleFico(btn){const el=document.getElementById('ficoLinks');el.classList.toggle('open');document.getElementById('ficoToggleText').textContent=el.classList.contains('open')?'▲ 收起':'▼ 展開資料來源';}
+
+// ═══════════════════════════════════════════
+//  匯入資料庫 功能
+// ═══════════════════════════════════════════
+const API_BASE = 'http://35.202.196.184:5000';
+const FX = 30;
+const TOTAL = 887379;
+const DIST = { premium:321503, high_risk:31336, default:55470, normal:479070 };
+
+let currentSeg = null;
+let dbData = {};
+
+function fmtM(v){ if(v===null||v===undefined)return'—';return Math.round(v*FX).toLocaleString(); }
+function scoreColor(t){ if(t>=700)return'var(--green)';if(t>=580)return'var(--yellow)';return'var(--red)'; }
+function segColor(seg){ return{premium:'var(--green)',high_risk:'var(--red)',default:'var(--default)',normal:'var(--accent)'}[seg]||'var(--muted)'; }
+function segLabel(seg){ return{premium:'優質',high_risk:'高風險',default:'違約',normal:'正常'}[seg]||seg; }
+
+function openDBModal(){
+  document.getElementById('dbOverlay').classList.add('open');
+  // 預設載入優質
+  if(!currentSeg) switchSeg('premium');
+}
+function closeDBModal(){ document.getElementById('dbOverlay').classList.remove('open'); }
+
+function switchSeg(seg){
+  // 更新 dist card
+  document.querySelectorAll('.dist-card').forEach(el=>{
+    el.className='dist-card';
+    if(el.id==='dc-'+seg) el.classList.add('active-'+seg);
+  });
+  // 更新 tab
+  document.querySelectorAll('.seg-tab').forEach(el=>{
+    el.className='seg-tab '+el.dataset.seg;
+    if(el.dataset.seg===seg) el.classList.add('active');
+  });
+  // 正常客群沒有TOP100 API，跳過
+  if(seg==='normal'){
+    document.getElementById('dbTableBody').innerHTML=`<tr><td colspan="7" class="db-empty">正常客群資料量龐大（479,070筆），請使用上方ID搜尋查詢個別客戶。</td></tr>`;
+    currentSeg=seg; return;
+  }
+  currentSeg=seg;
+  if(dbData[seg]){ renderDBTable(dbData[seg]); return; }
+  loadTop100(seg);
+}
+
+async function loadTop100(seg){
+  const apiSeg = seg==='default'?'default':seg; // premium/high_risk/default
+  document.getElementById('dbTableBody').innerHTML=`<tr><td colspan="7" class="db-loading">載入中...</td></tr>`;
+  try{
+    const res=await fetch(`${API_BASE}/api/top100/${apiSeg}`);
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const rows=await res.json();
+    dbData[seg]=rows;
+    renderDBTable(rows);
+  }catch(err){
+    document.getElementById('dbTableBody').innerHTML=`<tr><td colspan="7" class="db-empty">連線失敗：${err.message}</td></tr>`;
+  }
+}
+
+function renderDBTable(rows){
+  if(!rows.length){document.getElementById('dbTableBody').innerHTML=`<tr><td colspan="7" class="db-empty">沒有資料</td></tr>`;return;}
+  document.getElementById('dbTableBody').innerHTML=rows.map((r,i)=>{
+    const pct=Math.round(((r.total-300)/550)*100);
+    const color=scoreColor(r.total);
+    return `<tr onclick="showDetail('${r.id}')">
+      <td class="db-rank">${i+1}</td>
+      <td class="db-id">${r.id}</td>
+      <td>
+        <span class="db-score" style="color:${color}">${r.total}</span>
+        <span class="db-score-bar"><span class="db-score-fill" style="width:${pct}%;background:${color};display:block;height:100%;border-radius:4px;"></span></span>
+      </td>
+      <td class="db-num">${fmtM(r.annual_inc)}</td>
+      <td class="db-num">${fmtM(r.revol_bal)}</td>
+      <td class="db-num">${r.dti||'—'}</td>
+      <td class="db-reco">${r.recommendation||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function dbSearchCustomer(){
+  const id=document.getElementById('dbSearchInput').value.trim();
+  if(!id)return;
+  document.getElementById('detailOverlay').classList.add('open');
+  document.getElementById('detailModal').innerHTML='<button class="detail-close" onclick="closeDetail()">✕</button><div class="db-loading">查詢中...</div>';
+  try{
+    const res=await fetch(`${API_BASE}/api/customer/${id}`);
+    if(!res.ok)throw new Error(`找不到客戶 ID: ${id}`);
+    const c=await res.json();
+    renderDetail(c);
+  }catch(err){
+    document.getElementById('detailModal').innerHTML=`<button class="detail-close" onclick="closeDetail()">✕</button><div class="db-empty">${err.message}</div>`;
+  }
+}
+
+async function showDetail(id){
+  document.getElementById('detailOverlay').classList.add('open');
+  document.getElementById('detailModal').innerHTML='<button class="detail-close" onclick="closeDetail()">✕</button><div class="db-loading">載入中...</div>';
+  try{
+    const res=await fetch(`${API_BASE}/api/customer/${id}`);
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const c=await res.json();
+    renderDetail(c);
+  }catch(err){
+    document.getElementById('detailModal').innerHTML=`<button class="detail-close" onclick="closeDetail()">✕</button><div class="db-empty">載入失敗：${err.message}</div>`;
+  }
+}
+
+function closeDetail(){ document.getElementById('detailOverlay').classList.remove('open'); }
+
+function ageLabel(s){ return{'-63':'信用年齡<1年','-35':'1–3年','-15':'3–7年','0':'7–15年','20':'>15年'}[String(s)]||`年齡子分數${s}`; }
+function inqLabel(s){ return{'15':'近6月查詢0次','0':'查詢1次','-15':'2–3次','-27':'4–5次','-39':'≥6次'}[String(s)]||`查詢子分數${s}`; }
+
+function renderDetail(c){
+  const segColors={優質:'var(--green)',高風險:'var(--red)',違約:'var(--default)',正常:'var(--accent)'};
+  const segBg={優質:'rgba(0,212,160,0.12)',高風險:'rgba(255,71,87,0.12)',違約:'rgba(194,56,107,0.12)',正常:'rgba(124,111,255,0.12)'};
+  const segBorder={優質:'rgba(0,212,160,0.3)',高風險:'rgba(255,71,87,0.3)',違約:'rgba(194,56,107,0.3)',正常:'rgba(124,111,255,0.3)'};
+  const sc=segColors[c.segment]||'var(--muted)';
+  const color=scoreColor(c.total);
+
+  // 注意事項
+  const notes=[];
+  const util=parseFloat(c.revol_util),dti=parseFloat(c.dti);
+  const incUSD=Number(c.annual_inc),balUSD=Number(c.revol_bal);
+  if(util>99&&dti<1)notes.push({type:'warn',icon:'🔍',text:`使用率${util}%但DTI僅${dti}，可能是小額帳戶超限，非真實高負債，建議人工複核。`});
+  if(c.segment==='優質'&&incUSD>0&&balUSD/incUSD>0.3)notes.push({type:'warn',icon:'💳',text:`循環餘額為年收入的${(balUSD/incUSD*100).toFixed(0)}%，存量負債偏高，建議納入額度覆審。`});
+  if(Number(c.late_score)<=-76)notes.push({type:'bad',icon:'🚨',text:`還款紀錄子分數${c.late_score}，近2年有嚴重逾期或不良紀錄，是評分大幅拉低的主因。`});
+
+  // 轉貸試算
+  const REVOLVING_CAP=0.15;
+  const LOAN_RATE=c.total>=750?0.025:0.04;
+  let savingBox='';
+  if(c.segment==='優質'&&balUSD>0&&balUSD/incUSD>0.3){
+    const balTWD=balUSD*FX;
+    const save=balTWD*(REVOLVING_CAP-LOAN_RATE);
+    if(save>0)savingBox=`<div class="save-box"><div class="save-label">💡 轉貸試算（循環信用→信貸）</div>
+      循環餘額 NT$${Math.round(balTWD).toLocaleString()}，若續以循環利率上限${(REVOLVING_CAP*100).toFixed(0)}%計息，年利息 NT$${Math.round(balTWD*REVOLVING_CAP).toLocaleString()}；<br>
+      依評分 ${c.total} 估信貸利率${(LOAN_RATE*100).toFixed(1)}%，年利息 NT$${Math.round(balTWD*LOAN_RATE).toLocaleString()}。<br>
+      轉貸後 <span class="save-hl">一年約可省下 NT$${Math.round(save).toLocaleString()}</span>（每月約 NT$${Math.round(save/12).toLocaleString()}）。
+      <div class="save-caveat">＊估算僅供參考，實際利率依銀行審核為準。</div></div>`;
+  }
+
+  document.getElementById('detailModal').innerHTML=`
+    <button class="detail-close" onclick="closeDetail()" style="position:absolute;top:16px;right:16px;">✕</button>
+    <!-- 左欄：評分+fields -->
+    <div class="dm-left">
+      <div class="detail-id" style="font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:4px;padding-right:24px;">ID：${c.id} ｜ ${c.purpose||'—'}</div>
+      <div style="display:flex;align-items:flex-end;gap:6px;margin-bottom:4px;">
+        <div class="detail-score" style="color:${color};font-size:48px;">${c.total}</div>
+        <div style="font-size:14px;color:var(--muted);padding-bottom:6px;">/ 850</div>
+      </div>
+      <div class="detail-seg-tag" style="background:${segBg[c.segment]||'rgba(124,111,255,0.1)'};color:${sc};border:1px solid ${segBorder[c.segment]||'rgba(124,111,255,0.2)'};margin-bottom:12px;">${c.segment}</div>
+      <div class="dfield-list" style="gap:5px;">
+        <div class="dfield-row"><div class="dfield-icon">📅</div><div class="dfield-name">還款紀錄</div><div class="dfield-val">${c.late_score}</div></div>
+        <div class="dfield-row"><div class="dfield-icon">💳</div><div class="dfield-name">使用率 ${c.revol_util}%</div><div class="dfield-val">${c.util_score}</div></div>
+        <div class="dfield-row"><div class="dfield-icon">🕐</div><div class="dfield-name">${ageLabel(c.age_score)}</div><div class="dfield-val">${c.age_score}</div></div>
+        <div class="dfield-row"><div class="dfield-icon">🏦</div><div class="dfield-name">DTI ${c.dti}</div><div class="dfield-val">${c.type_score}</div></div>
+        <div class="dfield-row"><div class="dfield-icon">🔍</div><div class="dfield-name">${inqLabel(c.inq_score)}</div><div class="dfield-val">${c.inq_score}</div></div>
+        <div class="dfield-row"><div class="dfield-icon">💰</div><div class="dfield-name">年收入</div><div class="dfield-val" style="font-size:11px;">NT$${fmtM(c.annual_inc)}</div></div>
+        <div class="dfield-row"><div class="dfield-icon">📊</div><div class="dfield-name">循環餘額</div><div class="dfield-val" style="font-size:11px;">NT$${fmtM(c.revol_bal)}</div></div>
+        <div class="dfield-row"><div class="dfield-icon">🎯</div><div class="dfield-name">貸款狀態</div><div class="dfield-val" style="font-size:10px;">${c.loan_status||'—'}</div></div>
+      </div>
+    </div>
+    <!-- 右欄：notes+formula+save+reco -->
+    <div class="dm-right">
+      ${notes.length?`<div class="note-list" style="margin-bottom:8px;">${notes.map(n=>`<div class="note-item ${n.type}"><div class="note-icon">${n.icon}</div><div>${n.text}</div></div>`).join('')}</div>`:''}
+      <div class="dfm-box" style="margin-bottom:8px;font-size:11px;line-height:1.7;">
+        <div class="dfm-title">📐 評分組成</div>
+        使用率 ${c.util_score}　還款 ${c.late_score>=0?'+':''}${c.late_score}　${ageLabel(c.age_score)} ${c.age_score>=0?'+':''}${c.age_score}　種類 ${c.type_score>=0?'+':''}${c.type_score}　查詢 ${c.inq_score>=0?'+':''}${c.inq_score}<br>
+        <span class="dfm-total">= 總分 ${c.total} / 850</span>
+      </div>
+      ${savingBox}
+      <div class="dreco-box" style="flex:1;font-size:12px;">
+        <div class="dreco-label">建議行動</div>
+        ${c.recommendation||'無'}
+      </div>
+      <div style="font-size:9px;color:var(--muted);text-align:center;margin-top:8px;">金額原幣USD，以1USD≈NT$30換算 ｜ Kaggle LendingClub</div>
+    </div>
+  `;
+}
+
+// ═══════════════ INIT ═══════════════
+renderCards();
+updateBreakdown();
+</script>
+<!-- 圖表分析彈窗：analytics.html品質 scrollable版 -->
+<style>
+.chart-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.82);display:none;align-items:flex-start;justify-content:center;padding:20px;z-index:500;overflow-y:auto;}
+.chart-overlay.open{display:flex;}
+.chart-modal{background:var(--card);border:1px solid var(--border);border-radius:22px;width:98vw;max-width:1200px;margin:auto;padding:28px;position:relative;}
+.cm-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;}
+.cm-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;}
+.cm-sub{font-size:11px;color:var(--muted);margin-top:3px;}
+.cm-close{background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1;flex-shrink:0;padding:4px;}
+.cm-section{margin-bottom:28px;}
+.cm-sec-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1.5px;color:var(--text);margin-bottom:3px;}
+.cm-sec-sub{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.cm-insight{background:rgba(124,111,255,0.07);border:1px solid rgba(124,111,255,0.2);border-radius:10px;padding:10px 14px;font-size:11px;line-height:1.7;margin-bottom:14px;color:var(--muted);}
+.cm-insight strong{color:var(--text);}
+.cm-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:700px){.cm-grid2{grid-template-columns:1fr;}}
+.cm-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;}
+.cm-card-label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:14px;}
+.cm-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
+.cm-legend-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);}
+.cm-legend-line{width:20px;height:2px;flex-shrink:0;}
+.cm-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cm-bar-row{display:flex;align-items:center;gap:8px;font-size:11px;margin-bottom:7px;}
+.cm-bar-lbl{width:28px;text-align:right;color:var(--muted);}
+.cm-bar-track{flex:1;height:8px;background:var(--border);border-radius:6px;overflow:hidden;}
+.cm-bar-fill{height:100%;border-radius:6px;}
+.cm-bar-val{width:40px;font-family:'Bebas Neue',sans-serif;font-size:12px;}
+.cm-hbar-row{display:flex;align-items:center;gap:8px;font-size:11px;margin-bottom:7px;}
+.cm-hbar-name{width:70px;text-align:right;color:var(--muted);font-size:10px;flex-shrink:0;}
+.cm-hbar-track{flex:1;height:20px;background:var(--border);border-radius:4px;overflow:hidden;}
+.cm-hbar-fill{height:100%;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:7px;}
+.cm-hbar-fill span{font-family:'Bebas Neue',sans-serif;font-size:11px;color:#fff;}
+</style>
+
+<div class="chart-overlay" id="chartOverlay" onclick="if(event.target===this)closeChartModal()">
+<div class="chart-modal">
+  <div class="cm-header">
+    <div>
+      <div class="cm-title">📊 信用風險分析報告</div>
+      <div class="cm-sub">台灣信用卡30,000筆（某商業銀行 2005/04–09）· LendingClub 887,379筆 · 作者：張芸慈 · 指導：蘇凱正老師</div>
+    </div>
+    <button class="cm-close" onclick="closeChartModal()">✕</button>
+  </div>
+
+  <div class="cm-section">
+    <div class="cm-sec-title">📈 月份趨勢：使用率與違約率</div>
+    <div class="cm-sec-sub">台灣資料 · 使用率極高（>90%）vs 非極高月份的違約率與欠款率比較</div>
+    <div class="cm-insight"><strong>核心發現：</strong>使用率極高月份，違約率從 <strong>26.3%</strong> 持續攀升至 <strong>34.1%</strong>；非極高月份穩定在 <strong>20.1–21.1%</strong>。欠款率同步驗證：極高 <strong>0.92–0.93</strong>，非極高僅 <strong>0.40–0.47</strong>。</div>
+    <div class="cm-grid2">
+      <div class="cm-card">
+        <div class="cm-card-label">違約率（%）</div>
+        <svg id="svgDefault" viewBox="0 0 420 180" width="100%" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="cm-legend">
+          <div class="cm-legend-item"><div class="cm-legend-line" style="background:#ff4757"></div>使用率極高</div>
+          <div class="cm-legend-item"><div class="cm-legend-line" style="background:#00d4a0"></div>使用率非極高</div>
+        </div>
+      </div>
+      <div class="cm-card">
+        <div class="cm-card-label">平均欠款率</div>
+        <svg id="svgDebt" viewBox="0 0 420 180" width="100%" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="cm-legend">
+          <div class="cm-legend-item"><div class="cm-legend-line" style="background:#ff4757"></div>使用率極高</div>
+          <div class="cm-legend-item"><div class="cm-legend-line" style="background:#00d4a0"></div>使用率非極高</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cm-section">
+    <div class="cm-sec-title">🍩 使用率風險等級分布</div>
+    <div class="cm-sec-sub">台灣資料 · 中風險人數最多，但信用等級越低違約率越高（基數效應）</div>
+    <div class="cm-insight"><strong>注意：</strong>中風險（39.3%）人數最多，導致違約筆數看似最高，但這是<strong>基數效應</strong>。真實違約率應看右圖——A級1.8%線性升至G級14.4%。</div>
+    <div class="cm-grid2">
+      <div class="cm-card">
+        <div class="cm-card-label">使用率風險等級人數占比</div>
+        <div style="display:flex;justify-content:center;"><svg id="svgDonut" viewBox="0 0 200 200" width="180" height="180"></svg></div>
+        <div class="cm-legend" style="justify-content:center;margin-top:6px;">
+          <div class="cm-legend-item"><div class="cm-legend-dot" style="background:#4d9de0"></div>低 16.5%</div>
+          <div class="cm-legend-item"><div class="cm-legend-dot" style="background:#f4a261"></div>中 39.3%</div>
+          <div class="cm-legend-item"><div class="cm-legend-dot" style="background:#e76f51"></div>高 27.0%</div>
+          <div class="cm-legend-item"><div class="cm-legend-dot" style="background:#c2386b"></div>極高 17.2%</div>
+        </div>
+      </div>
+      <div class="cm-card">
+        <div class="cm-card-label">各信用等級違約率（A–G）</div>
+        <div id="gradeWrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cm-section">
+    <div class="cm-sec-title">📊 各貸款用途違約筆數 Top8</div>
+    <div class="cm-sec-sub">美國LendingClub資料</div>
+    <div class="cm-insight"><strong>債務整合達 27,599 筆</strong>，占違約筆數大宗——多筆欠款整合本身即為高風險訊號；信用卡 7,826 筆次之。</div>
+    <div class="cm-card"><div class="cm-card-label">違約筆數</div><div id="purposeBar"></div></div>
+  </div>
+
+  <div class="cm-section" style="margin-bottom:0;">
+    <div class="cm-sec-title">⚖️ 違約比數 VS 違約率：兩種視角</div>
+    <div class="cm-sec-sub">台灣資料 · 左圖=真實違約率（正確視角），右圖=違約筆數（基數效應）</div>
+    <div class="cm-insight"><strong>右圖為誤判陷阱：</strong>中風險違約筆數最高，因人數最多（34萬），不代表風險最高。<strong>左圖才是正確視角：</strong>使用率越高→違約率越高（3.8%→6.6%），驗證使用率作為領先指標的有效性。</div>
+    <div class="cm-grid2">
+      <div class="cm-card" style="border-color:rgba(0,212,160,0.25);">
+        <div class="cm-card-label" style="color:var(--green)">✅ 真實違約率（正確視角）</div>
+        <svg id="svgBarTrue" viewBox="0 0 300 180" width="100%" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="cm-card" style="border-color:rgba(255,71,87,0.15);">
+        <div class="cm-card-label" style="color:var(--red)">⚠️ 違約筆數（基數效應·容易誤判）</div>
+        <svg id="svgBarBase" viewBox="0 0 300 180" width="100%" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+    <div style="font-size:10px;color:var(--muted);">資料來源：台灣某商業銀行（論文中未具名）· LendingClub · Experian 2025 · myFICO指南 · 金管會｜信用評分為模擬計算，非真實FICO分數</div>
+  </div>
+</div>
+</div>
+
+<script>
+function openChartModal(){
+  document.getElementById('chartOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+  if(!window._chartsDrawn){ drawAllCharts(); window._chartsDrawn=true; }
+}
+function closeChartModal(){
+  document.getElementById('chartOverlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+const _NS='http://www.w3.org/2000/svg';
+function _el(t,a){const e=document.createElementNS(_NS,t);Object.entries(a).forEach(([k,v])=>e.setAttribute(k,v));return e;}
+function _txt(c,a){const e=_el('text',a);e.textContent=c;return e;}
+function drawLine(id,series,yMin,yMax,fmt){
+  const svg=document.getElementById(id); if(!svg)return;
+  const W=420,H=180,P={t:20,r:30,b:36,l:46};
+  const cW=W-P.l-P.r,cH=H-P.t-P.b;
+  const M=['1月','2月','3月','4月','5月','6月'];
+  const xP=i=>P.l+i/5*cW, yP=v=>P.t+cH-(v-yMin)/(yMax-yMin)*cH;
+  for(let i=0;i<=4;i++){const v=yMin+(yMax-yMin)*i/4,y=yP(v);svg.appendChild(_el('line',{x1:P.l,y1:y,x2:P.l+cW,y2:y,stroke:'#2a2a38','stroke-width':1}));svg.appendChild(_txt(fmt(v),{x:P.l-5,y:y+4,'text-anchor':'end',fill:'#6b6b85','font-size':'9','font-family':'DM Sans'}));}
+  M.forEach((m,i)=>svg.appendChild(_txt(m,{x:xP(i),y:H-6,'text-anchor':'middle',fill:'#6b6b85','font-size':'9','font-family':'DM Sans'})));
+  series.forEach(s=>{
+    const d=s.data.map((v,i)=>`${i===0?'M':'L'}${xP(i)},${yP(v)}`).join(' ');
+    svg.appendChild(_el('path',{d,fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-linecap':'round','stroke-linejoin':'round',...(s.dash?{'stroke-dasharray':'6,3'}:{})}));
+    s.data.forEach((v,i)=>{svg.appendChild(_el('circle',{cx:xP(i),cy:yP(v),r:4,fill:s.color}));svg.appendChild(_txt(fmt(v),{x:xP(i),y:yP(v)-9,'text-anchor':'middle',fill:s.color,'font-size':'9','font-weight':'700','font-family':'DM Sans'}));});
+  });
+}
+function drawDonut(){
+  const svg=document.getElementById('svgDonut'); if(!svg)return;
+  const data=[{pct:16.5,c:'#4d9de0'},{pct:39.3,c:'#f4a261'},{pct:27.0,c:'#e76f51'},{pct:17.2,c:'#c2386b'}];
+  const cx=100,cy=100,R=80,r=50; let start=-Math.PI/2;
+  data.forEach(d=>{const a=(d.pct/100)*2*Math.PI,end=start+a,lg=a>Math.PI?1:0;const x1=cx+R*Math.cos(start),y1=cy+R*Math.sin(start),x2=cx+R*Math.cos(end),y2=cy+R*Math.sin(end),ix1=cx+r*Math.cos(end),iy1=cy+r*Math.sin(end),ix2=cx+r*Math.cos(start),iy2=cy+r*Math.sin(start);svg.appendChild(_el('path',{d:`M${x1},${y1} A${R},${R} 0 ${lg},1 ${x2},${y2} L${ix1},${iy1} A${r},${r} 0 ${lg},0 ${ix2},${iy2} Z`,fill:d.c,stroke:'#1a1a24','stroke-width':2}));const mid=start+a/2,lx=cx+(R+r)/2*Math.cos(mid),ly=cy+(R+r)/2*Math.sin(mid);const t=_el('text',{x:lx,y:ly+4,'text-anchor':'middle',fill:'#fff','font-size':'10','font-weight':'700','font-family':'DM Sans'});t.textContent=d.pct+'%';svg.appendChild(t);start=end;});
+  svg.appendChild(_el('circle',{cx,cy,r:r-1,fill:'#1a1a24'}));['風險','分布'].forEach((s,i)=>{const t=_el('text',{x:cx,y:cy+(i===0?-6:10),'text-anchor':'middle',fill:'#6b6b85','font-size':'11','font-family':'DM Sans'});t.textContent=s;svg.appendChild(t);});
+}
+function drawGrades(){
+  const w=document.getElementById('gradeWrap'); if(!w)return;
+  const g=[{g:'A',v:1.8,c:'#4d9de0'},{g:'B',v:3.7,c:'#52b69a'},{g:'C',v:5.1,c:'#76c893'},{g:'D',v:7.5,c:'#ffd166'},{g:'E',v:8.9,c:'#ff8c42'},{g:'F',v:12.7,c:'#e76f51'},{g:'G',v:14.4,c:'#c2386b'}];
+  w.innerHTML=g.map(d=>`<div class="cm-bar-row"><div class="cm-bar-lbl">${d.g}</div><div class="cm-bar-track"><div class="cm-bar-fill" style="width:${(d.v/15)*100}%;background:${d.c}"></div></div><div class="cm-bar-val" style="color:${d.c}">${d.v}%</div></div>`).join('');
+}
+function drawPurposes(){
+  const w=document.getElementById('purposeBar'); if(!w)return;
+  const p=[{n:'債務整合',v:27599,c:'#c2386b'},{n:'信用卡',v:7826,c:'#e76f51'},{n:'其他',v:2936,c:'#ff8c42'},{n:'房屋裝修',v:2269,c:'#ffd166'},{n:'小型創業',v:1371,c:'#7c6fff'},{n:'大額採購',v:874,c:'#4d9de0'},{n:'醫療',v:569,c:'#52b69a'},{n:'汽車',v:448,c:'#00d4a0'}];
+  w.innerHTML=p.map(d=>`<div class="cm-hbar-row"><div class="cm-hbar-name">${d.n}</div><div class="cm-hbar-track"><div class="cm-hbar-fill" style="width:${(d.v/27599)*100}%;background:${d.c}"><span>${d.v.toLocaleString()}</span></div></div></div>`).join('');
+}
+function drawBar(id,data,colors,fmt,yMax){
+  const svg=document.getElementById(id); if(!svg)return;
+  const W=300,H=180,P={t:20,r:16,b:36,l:20};
+  const cW=W-P.l-P.r,cH=H-P.t-P.b;
+  const n=data.length,bW=(cW/n)*0.55,gap=cW/n;
+  svg.appendChild(_el('line',{x1:P.l,y1:P.t+cH,x2:P.l+cW,y2:P.t+cH,stroke:'#2a2a38','stroke-width':1}));
+  data.forEach((d,i)=>{const bH=(d.val/yMax)*cH,x=P.l+i*gap+(gap-bW)/2,y=P.t+cH-bH,c=Array.isArray(colors)?colors[i]:colors;svg.appendChild(_el('rect',{x,y,width:bW,height:bH,rx:4,fill:c,opacity:0.85}));const vt=_el('text',{x:x+bW/2,y:y-5,'text-anchor':'middle',fill:c,'font-size':'9','font-weight':'700','font-family':'DM Sans'});vt.textContent=fmt(d.val);svg.appendChild(vt);const lt=_el('text',{x:x+bW/2,y:H-6,'text-anchor':'middle',fill:'#6b6b85','font-size':'9','font-family':'DM Sans'});lt.textContent=d.label;svg.appendChild(lt);});
+}
+function drawAllCharts(){
+  drawLine('svgDefault',[{data:[26.3,27.9,29.1,31.3,33.0,34.1],color:'#ff4757'},{data:[21.1,20.8,20.7,20.8,20.9,20.9],color:'#00d4a0',dash:true}],15,40,v=>v.toFixed(1)+'%');
+  drawLine('svgDebt',[{data:[0.93,0.93,0.93,0.93,0.92,0.92],color:'#ff4757'},{data:[0.40,0.41,0.43,0.45,0.47,0.47],color:'#00d4a0',dash:true}],0.2,1.05,v=>v.toFixed(2));
+  drawDonut(); drawGrades(); drawPurposes();
+  drawBar('svgBarTrue',[{label:'低風險',val:3.8},{label:'中風險',val:4.5},{label:'高風險',val:5.7},{label:'極高風險',val:6.6}],['#4d9de0','#f4a261','#e76f51','#c2386b'],v=>v.toFixed(1)+'%',8);
+  drawBar('svgBarBase',[{label:'低風險',val:5584},{label:'中風險',val:15849},{label:'高風險',val:13734},{label:'極高風險',val:10034}],['#4d9de0','#f4a261','#e76f51','#c2386b'],v=>(v/1000).toFixed(0)+'k',18000);
+}
+</script>
+</body>
+</html>
