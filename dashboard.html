@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>風控儀表板</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+
+  :root {
+    --bg: #0a0a0f; --surface: #13131a; --card: #1a1a24;
+    --border: #2a2a38; --accent: #7c6fff; --green: #00d4a0;
+    --yellow: #ffd166; --red: #ff4757; --orange: #ff8c42;
+    --default: #c2386b;
+    --text: #e8e8f0; --muted: #6b6b85;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  .container { max-width: 1000px; margin: 0 auto; padding: 32px 20px 80px; }
+
+  header { text-align: center; margin-bottom: 28px; }
+  .badge {
+    display: inline-block; background: rgba(124,111,255,0.15);
+    border: 1px solid rgba(124,111,255,0.3); color: var(--accent);
+    font-size: 11px; font-weight: 600; letter-spacing: 2px;
+    text-transform: uppercase; padding: 6px 14px; border-radius: 20px; margin-bottom: 16px;
+  }
+  h1 {
+    font-family: 'Bebas Neue', sans-serif; font-size: clamp(28px,5vw,44px);
+    line-height: 1.1; margin-bottom: 8px;
+    background: linear-gradient(135deg, #fff 0%, rgba(124,111,255,0.9) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .subtitle { color: var(--muted); font-size: 14px; }
+
+  /* ── 分頁切換 ── */
+  .seg-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 600px) { .seg-grid { grid-template-columns: 1fr; } }
+  .seg-btn {
+    position: relative; padding: 18px 16px; border-radius: 16px;
+    border: 2px solid var(--border); background: var(--card);
+    cursor: pointer; text-align: left; transition: all 0.25s;
+    font-family: 'DM Sans', sans-serif; color: var(--text);
+  }
+  .seg-btn .seg-emoji { font-size: 24px; display: block; margin-bottom: 6px; }
+  .seg-btn .seg-name {
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px;
+  }
+  .seg-btn .seg-count { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .seg-btn .seg-total {
+    font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px;
+    display: block; margin-top: 8px; line-height: 1;
+  }
+  .seg-btn.active.premium  { border-color: var(--green);  box-shadow: 0 0 24px rgba(0,212,160,0.18); }
+  .seg-btn.active.high_risk{ border-color: var(--red);    box-shadow: 0 0 24px rgba(255,71,87,0.18); }
+  .seg-btn.active.default  { border-color: var(--default);box-shadow: 0 0 24px rgba(194,56,107,0.2); }
+  .seg-btn:not(.active):hover { border-color: rgba(124,111,255,0.3); }
+
+  /* ── 分數進度條 ── */
+  .score-bar-wrap { width: 80px; display: inline-block; vertical-align: middle; margin-left: 8px; }
+  .score-bar-bg { background: var(--border); border-radius: 4px; height: 5px; width: 100%; }
+  .score-bar-fill { height: 5px; border-radius: 4px; transition: width 0.3s; }
+
+  /* ── 表格 ── */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); padding: 12px 14px; border-bottom: 1px solid var(--border);
+    background: var(--surface); white-space: nowrap;
+  }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr { cursor: pointer; transition: background 0.15s; }
+  tbody tr:hover { background: rgba(124,111,255,0.06); }
+  .rank { color: var(--muted); font-family: 'Bebas Neue', sans-serif; font-size: 15px; }
+  .score-cell { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px; }
+  .reco-cell {
+    color: var(--muted); font-size: 12px; max-width: 260px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .id-cell { font-family: monospace; color: var(--text); }
+  .num-cell { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .loading, .empty {
+    padding: 40px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+
+  /* ── 詳細資訊彈窗（放大版，不需滾輪） ── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    display: none; align-items: center; justify-content: center;
+    padding: 24px; z-index: 100;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    padding: 24px 28px; max-width: 860px; width: 100%;
+    max-height: 88vh; overflow: hidden;
+    display: grid; grid-template-columns: 240px 1fr; gap: 20px;
+  }
+  /* 左欄：評分+tag+field-list */
+  .modal-left { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+  /* 右欄：notes+formula+save+reco */
+  .modal-right { display: flex; flex-direction: column; gap: 0; min-width: 0; overflow-y: auto; }
+  .modal-right::-webkit-scrollbar { width: 4px; }
+  .modal-right::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    background: none; border: none; color: var(--muted);
+    font-size: 20px; cursor: pointer; line-height: 1; z-index: 10;
+  }
+  .modal-id { font-family: monospace; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .modal-score-row { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 4px; }
+  .modal-score { font-family: 'Bebas Neue', sans-serif; font-size: 52px; letter-spacing: 2px; }
+  .modal-score-max { font-size: 15px; color: var(--muted); padding-bottom: 7px; }
+  .modal-segment-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    margin: 6px 0 14px;
+  }
+
+  .field-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 0; }
+  .field-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border-radius: 10px; padding: 8px 12px; font-size: 12px;
+  }
+  .field-icon { font-size: 13px; flex-shrink: 0; width: 16px; text-align: center; }
+  .field-name { color: var(--muted); flex: 1; }
+  .field-val { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 0.5px; }
+
+  .reco-box {
+    background: rgba(124,111,255,0.08); border: 1px solid rgba(124,111,255,0.2);
+    border-radius: 12px; padding: 14px; font-size: 12px; line-height: 1.75;
+  }
+  .reco-box .reco-label {
+    font-size: 11px; color: var(--accent); font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;
+  }
+
+  /* ── 分析圖表彈窗 ── */
+  .chart-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+    display: none; align-items: center; justify-content: center;
+    padding: 24px; z-index: 200;
+  }
+  .chart-overlay.open { display: flex; }
+  .chart-modal {
+    background: var(--card); border: 1px solid var(--border); border-radius: 22px;
+    padding: 24px; width: 96vw; max-width: 1080px;
+    height: 86vh; max-height: 760px;
+    display: grid; grid-template-rows: auto 1fr; gap: 16px;
+    position: relative; overflow: hidden;
+  }
+  .chart-modal-header { display: flex; align-items: center; justify-content: space-between; }
+  .chart-modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; }
+  .chart-modal-close { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; }
+  .chart-modal-body {
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 12px; min-height: 0;
+  }
+  .chart-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px; display: flex; flex-direction: column; min-height: 0;
+  }
+  .chart-panel-title { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 8px; flex-shrink: 0; }
+  .chart-panel svg { flex: 1; min-height: 0; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; flex-shrink: 0; }
+  .chart-legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
+  .chart-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .chart-legend-line { width: 18px; height: 2px; flex-shrink: 0; }
+  /* hbar in chart panel */
+  .chbar { display: flex; align-items: center; gap: 6px; font-size: 10px; margin-bottom: 5px; }
+  .chbar-name { width: 64px; text-align: right; color: var(--muted); font-size: 9px; flex-shrink: 0; }
+  .chbar-track { flex: 1; height: 14px; background: var(--border); border-radius: 4px; overflow: hidden; position: relative; }
+  .chbar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-right: 5px; justify-content: flex-end; }
+  .chbar-fill span { font-family: 'Bebas Neue', sans-serif; font-size: 10px; color: white; }
+
+  /* ── 轉貸試算 ── */
+  .save-box {
+    background: rgba(0,212,160,0.06); border: 1px solid rgba(0,212,160,0.2);
+    border-radius: 12px; padding: 14px; font-size: 12px; line-height: 1.8; margin-bottom: 14px;
+  }
+  .save-box .save-label {
+    font-size: 11px; color: var(--green); font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;
+  }
+  .save-box .save-highlight { color: var(--green); font-weight: 700; }
+  .save-box .save-caveat { color: var(--muted); font-size: 11px; margin-top: 6px; }
+
+  /* ── 評分組成 ── */
+  .formula-box {
+    font-size: 11px; color: var(--muted); line-height: 1.8;
+    background: rgba(255,255,255,0.03); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;
+  }
+  .formula-box .fb-title { color: var(--text); font-weight: 600; margin-bottom: 4px; }
+  .formula-box .fb-total { color: var(--text); font-weight: 700; }
+
+  /* ── 注意事項 ── */
+  .notes-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .note {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--surface); border-radius: 10px; padding: 10px 12px;
+    font-size: 12px; line-height: 1.6; border-left: 3px solid transparent;
+  }
+  .note.warn { border-left-color: var(--yellow); }
+  .note.bad  { border-left-color: var(--red); }
+  .note-icon { flex-shrink: 0; font-size: 14px; }
+
+  .api-note {
+    text-align: center; font-size: 11px; color: var(--muted); margin-top: 24px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="badge">風控儀表板 v1</div>
+    <h1>信用風險<br>客戶總覽</h1>
+    <p class="subtitle">依評分模型批次計算 · 點擊客戶查看完整明細與建議行動</p>
+    <button onclick="openChartModal()" style="margin-top:14px;background:rgba(0,212,160,0.12);border:1px solid rgba(0,212,160,0.3);color:var(--green);padding:8px 18px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.5px;">📊 分析報告</button>
+  </header>
+
+  <div class="seg-grid" id="segGrid">
+    <div class="seg-btn premium" data-seg="premium" onclick="selectSegment('premium')">
+      <span class="seg-emoji">🟢</span>
+      <div class="seg-name">優質客戶 TOP100</div>
+      <span class="seg-total" style="color:var(--green)">321,503</span>
+      <div class="seg-count" id="count-premium">載入中...</div>
+    </div>
+    <div class="seg-btn high_risk" data-seg="high_risk" onclick="selectSegment('high_risk')">
+      <span class="seg-emoji">🔴</span>
+      <div class="seg-name">高風險客戶 TOP100</div>
+      <span class="seg-total" style="color:var(--red)">31,336</span>
+      <div class="seg-count" id="count-high_risk">載入中...</div>
+    </div>
+    <div class="seg-btn default" data-seg="default" onclick="selectSegment('default')">
+      <span class="seg-emoji">⚫</span>
+      <div class="seg-name">違約客戶 TOP100</div>
+      <span class="seg-total" style="color:var(--default)">55,470</span>
+      <div class="seg-count" id="count-default">載入中...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>客戶ID</th>
+          <th>評分</th>
+          <th style="text-align:right">年收入</th>
+          <th style="text-align:right">循環餘額</th>
+          <th style="text-align:right">負債比</th>
+          <th>建議行動</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="7" class="loading">載入中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="api-note">資料來源：customer_score（即時API） ｜ 金額原幣為USD，以1USD≈NT$30（近10年平均概算）換算 ｜ 年收入為Kaggle LendingClub資料集客戶自填欄位，部分數值可能為極端值，僅供參考</div>
+</div>
+
+<!-- 詳細資訊彈窗 -->
+<div class="overlay" id="overlay" onclick="if(event.target===this) closeDetail()">
+  <div class="modal" id="modal"></div>
+</div>
+
+<!-- 分析報告彈窗 -->
+<div class="chart-overlay" id="chartOverlay" onclick="if(event.target===this) closeChartModal()">
+  <div class="chart-modal">
+    <div class="chart-modal-header">
+      <div>
+        <div class="chart-modal-title">📊 信用風險分析報告</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">台灣信用卡 30,000筆 · LendingClub 887,379筆 · 作者：張芸慈 · 指導：蘇凱正老師</div>
+      </div>
+      <button class="chart-modal-close" onclick="closeChartModal()">✕</button>
+    </div>
+    <div class="chart-modal-body">
+
+      <!-- 左上：P15 違約率折線 -->
+      <div class="chart-panel">
+        <div class="chart-panel-title">使用率極高(>90%) vs 非極高月份 · 違約率趨勢（台灣資料）</div>
+        <svg id="svgDefault" viewBox="0 0 320 150" preserveAspectRatio="xMidYMid meet" style="flex:1;width:100%;"></svg>
+        <div class="chart-legend">
+          <div class="chart-legend-item"><div class="chart-legend-line" style="background:#ff4757"></div>使用率極高 26.3→34.1%</div>
+          <div class="chart-legend-item"><div class="chart-legend-line" style="background:#00d4a0;border-top:2px dashed #00d4a0;height:0;"></div>非極高 ~21%</div>
+        </div>
+      </div>
+
+      <!-- 右上：P15 欠款率折線 -->
+      <div class="chart-panel">
+        <div class="chart-panel-title">使用率極高(>90%) vs 非極高月份 · 欠款率趨勢（台灣資料）</div>
+        <svg id="svgDebt" viewBox="0 0 320 150" preserveAspectRatio="xMidYMid meet" style="flex:1;width:100%;"></svg>
+        <div class="chart-legend">
+          <div class="chart-legend-item"><div class="chart-legend-line" style="background:#ff4757"></div>極高 0.92–0.93</div>
+          <div class="chart-legend-item"><div class="chart-legend-line" style="background:#00d4a0"></div>非極高 0.40→0.47</div>
+        </div>
+      </div>
+
+      <!-- 左下：P16 信用等級違約率 + P19 真實違約率 -->
+      <div class="chart-panel">
+        <div class="chart-panel-title">各信用等級違約率（A→G）＆ 使用率風險等級真實違約率（台灣資料）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;align-items:start;">
+          <div>
+            <div style="font-size:9px;color:var(--muted);margin-bottom:6px;font-weight:600;">信用等級 A–G</div>
+            <div id="gradeWrap"></div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:var(--muted);margin-bottom:6px;font-weight:600;">✅ 真實違約率（使用率風險等級）</div>
+            <div>
+              ${[{l:'低風險',v:3.8,c:'#4d9de0'},{l:'中風險',v:4.5,c:'#f4a261'},{l:'高風險',v:5.7,c:'#e76f51'},{l:'極高風險',v:6.6,c:'#c2386b'}].map(d=>`
+              <div class="chbar" style="margin-bottom:7px;">
+                <div class="chbar-name" style="font-size:9px;">${d.l}</div>
+                <div class="chbar-track"><div class="chbar-fill" style="width:${(d.v/8)*100}%;background:${d.c}"><span>${d.v}%</span></div></div>
+              </div>`).join('')}
+              <div style="font-size:9px;color:var(--muted);margin-top:6px;">⚠️ 使用率越高→違約率越高（領先指標）</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右下：P17 用途違約 -->
+      <div class="chart-panel">
+        <div class="chart-panel-title">各貸款用途違約筆數 Top8（LendingClub 美國資料）</div>
+        <div id="purposeWrap" style="flex:1;display:flex;flex-direction:column;justify-content:space-evenly;"></div>
+        <div style="font-size:9px;color:var(--muted);margin-top:6px;">⚠️ 債務整合27,599筆最高——本身即為高風險訊號</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'http://35.202.196.184:5000';
+
+const SEGMENTS = {
+  premium:   { label: '優質',  color: 'var(--green)',  tagBg: 'rgba(0,212,160,0.1)',  tagBorder: 'rgba(0,212,160,0.2)' },
+  high_risk: { label: '高風險', color: 'var(--red)',    tagBg: 'rgba(255,71,87,0.1)',  tagBorder: 'rgba(255,71,87,0.2)' },
+  default:   { label: '違約',  color: 'var(--default)', tagBg: 'rgba(194,56,107,0.12)',tagBorder: 'rgba(194,56,107,0.25)' },
+};
+
+let currentSegment = 'premium';
+let currentRows = [];
+
+const FX_RATE = 30; // USD→TWD，近10年平均概算匯率
+
+function fmtMoney(v) {
+  if (v === null || v === undefined) return '—';
+  return Math.round(v * FX_RATE).toLocaleString();
+}
+
+function scoreColor(total) {
+  if (total >= 700) return 'var(--green)';
+  if (total >= 580) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function segMeta(seg) { return SEGMENTS[seg] || SEGMENTS.premium; }
+
+const REVOLVING_CAP_RATE = 0.15; // 信用卡循環利率法定上限,各銀行普遍2.74%~15%
+
+// 依評分區間估算可爭取的信貸優惠利率(優質客戶約2%~5%區間)
+// v2評分上限850,優質門檻700; ≥750估最優利率2.5%,700~749估4%
+function loanRateForScore(total) {
+  if (total >= 750) return 0.025;
+  return 0.04;
+}
+
+// 轉貸試算：循環利率上限 vs 信貸優惠利率，差額即為一年可省下的利息
+function buildSavingsBox(c) {
+  if (c.segment !== '優質' || !c.revol_bal || !c.annual_inc) return '';
+  if (c.revol_bal / c.annual_inc <= 0.3) return ''; // 占比不高,不需要轉信貸,不顯示試算
+  const balTWD = c.revol_bal * FX_RATE;
+  const loanRate = loanRateForScore(c.total);
+  const annualSave = balTWD * (REVOLVING_CAP_RATE - loanRate);
+  if (annualSave <= 0) return '';
+  const monthlySave = annualSave / 12;
+  return `
+    <div class="save-box">
+      <div class="save-label">💡 轉貸試算（循環信用 → 信貸）</div>
+      目前循環餘額約 NT$${fmtMoney(c.revol_bal)}。若持續以信用卡循環信用週轉（利率上限約${(REVOLVING_CAP_RATE*100).toFixed(0)}%），
+      一年利息約 NT$${Math.round(balTWD * REVOLVING_CAP_RATE).toLocaleString()}；
+      依此客戶信用評分 ${c.total}，信貸利率估約${(loanRate*100).toFixed(1)}%，一年利息約 NT$${Math.round(balTWD * loanRate).toLocaleString()}。<br>
+      轉貸後 <span class="save-highlight">一年約可省下 NT$${Math.round(annualSave).toLocaleString()}</span>（約每月 NT$${Math.round(monthlySave).toLocaleString()}）的利息支出。
+      <div class="save-caveat">＊估算僅供參考，實際循環利率與信貸核貸利率依各銀行評等及審核結果而定。</div>
+    </div>
+  `;
+}
+
+function ageLabel(score) {
+  const map = { '-63':'信用年齡 < 1年', '-35':'信用年齡 1–3年', '-15':'信用年齡 3–7年', '0':'信用年齡 7–15年', '20':'信用年齡 > 15年' };
+  return map[String(score)] ?? `信用年齡子分數 ${score}`;
+}
+
+function inqLabel(score) {
+  const map = { '15':'近6個月查詢 0 次', '0':'近6個月查詢 1 次', '-15':'近6個月查詢 2–3 次', '-27':'近6個月查詢 4–5 次', '-39':'近6個月查詢 ≥ 6 次' };
+  return map[String(score)] ?? `新申請次數子分數 ${score}`;
+}
+
+// 產生「注意事項」清單：針對收入/使用率/餘額互相矛盾的情況給出風控提醒
+function buildNotes(c) {
+  const notes = [];
+  const util = parseFloat(c.revol_util);
+  const dti = parseFloat(c.dti);
+  const incomeUSD = Number(c.annual_inc);
+  const balUSD = Number(c.revol_bal);
+
+  // 1. 使用率>99%但DTI極低：可能是小額帳戶超限,而非真實高負債
+  if (util > 99 && dti < 1) {
+    notes.push({ type: 'warn', icon: '🔍',
+      text: `使用率 ${util}% 是壓低評分的主因（基礎分僅 ${c.util_score}），但負債比 DTI 僅 ${c.dti}，負債金額相對年收入極小，較可能是小額信用帳戶剛好超限，不代表真實清償能力不足，建議人工複核再決定是否轉催收。` });
+  }
+
+  // 2. 優質客戶但循環餘額占年收入比重過高：存量負債偏高,不宜再增額度
+  if (c.segment === '優質' && incomeUSD > 0 && (balUSD / incomeUSD) > 0.3) {
+    const pct = (balUSD / incomeUSD * 100).toFixed(1);
+    notes.push({ type: 'warn', icon: '💳',
+      text: `循環餘額約為年收入的 ${pct}%（NT$${fmtMoney(balUSD)} / NT$${fmtMoney(incomeUSD)}），存量負債偏高。雖使用率/DTI等指標使整體評分達優質，建議不宜再提高循環額度，列入額度覆審觀察名單。` });
+  }
+
+  // 3. 還款紀錄嚴重扣分：明確指出主因
+  if (Number(c.late_score) <= -76) {
+    notes.push({ type: 'bad', icon: '🚨',
+      text: `還款紀錄子分數為 ${c.late_score}，代表近2年有嚴重逾期、催收或公開不良記錄，是評分被大幅拉低的主要原因。` });
+  }
+
+  return notes;
+}
+
+async function selectSegment(seg) {
+  currentSegment = seg;
+  document.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.seg === seg));
+
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '<tr><td colspan="7" class="loading">載入中...</td></tr>';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/top100/${seg}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    currentRows = rows;
+    renderTable(rows);
+
+    const countEl = document.getElementById(`count-${seg}`);
+    if (countEl) countEl.textContent = `顯示前 ${rows.length} 筆`;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">載入失敗：${err.message}<br>
+      <span style="font-size:11px">請確認API是否可連線：${API_BASE}/api/health</span></td></tr>`;
+  }
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('tableBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">沒有資料</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => {
+    const pct = Math.round(((r.total - 300) / 550) * 100);
+    const color = scoreColor(r.total);
+    return `
+    <tr onclick="showDetail('${r.id}')">
+      <td class="rank">${i + 1}</td>
+      <td class="id-cell">${r.id}</td>
+      <td>
+        <span class="score-cell" style="color:${color}">${r.total}</span>
+        <span class="score-bar-wrap">
+          <div class="score-bar-bg">
+            <div class="score-bar-fill" style="width:${pct}%;background:${color}"></div>
+          </div>
+        </span>
+      </td>
+      <td class="num-cell">${fmtMoney(r.annual_inc)}</td>
+      <td class="num-cell">${fmtMoney(r.revol_bal)}</td>
+      <td class="num-cell">${r.dti}</td>
+      <td class="reco-cell">${r.recommendation || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function showDetail(id) {
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.innerHTML = '<div class="loading">載入中...</div>';
+  overlay.classList.add('open');
+
+  try {
+    const res = await fetch(`${API_BASE}/api/customer/${id}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const c = await res.json();
+    renderDetail(c);
+  } catch (err) {
+    modal.innerHTML = `<button class="modal-close" onclick="closeDetail()">✕</button>
+      <div class="empty">載入失敗：${err.message}</div>`;
+  }
+}
+
+function renderDetail(c) {
+  const meta = segMeta(Object.keys(SEGMENTS).find(k => SEGMENTS[k].label === c.segment) || 'premium');
+  const color = scoreColor(c.total);
+  const incUSD = Number(c.annual_inc), balUSD = Number(c.revol_bal);
+  const balPct = incUSD > 0 ? (balUSD / incUSD * 100).toFixed(1) : null;
+
+  const fields = [
+    { icon: '📅', name: '還款紀錄子分數', val: c.late_score },
+    { icon: '💳', name: `使用率 (${c.revol_util}%)`, val: c.util_score },
+    { icon: '🕐', name: ageLabel(c.age_score), val: c.age_score },
+    { icon: '🏦', name: `信用種類 (DTI ${c.dti})`, val: c.type_score },
+    { icon: '🔍', name: inqLabel(c.inq_score), val: c.inq_score },
+    { icon: '💰', name: '年收入', val: 'NT$' + fmtMoney(c.annual_inc) },
+    { icon: '📊', name: '循環餘額', val: 'NT$' + fmtMoney(c.revol_bal) },
+    { icon: '🎯', name: '貸款狀態', val: c.loan_status },
+  ];
+
+  const notes = buildNotes(c);
+  const notesBox = notes.length ? `
+    <div class="notes-list">
+      ${notes.map(n => `<div class="note ${n.type}"><div class="note-icon">${n.icon}</div><div>${n.text}</div></div>`).join('')}
+    </div>` : '';
+
+  const formulaBox = `
+    <div class="formula-box" style="margin-bottom:12px;">
+      <div class="fb-title">📐 評分組成</div>
+      使用率基礎分 ${c.util_score}　還款紀錄 ${c.late_score >= 0 ? '+' : ''}${c.late_score}<br>
+      ${ageLabel(c.age_score)} ${c.age_score >= 0 ? '+' : ''}${c.age_score}　信用種類 ${c.type_score >= 0 ? '+' : ''}${c.type_score}　查詢 ${c.inq_score >= 0 ? '+' : ''}${c.inq_score}<br>
+      <span class="fb-total">= 總分 ${c.total} / 850</span>
+    </div>`;
+
+  document.getElementById('modal').style.position = 'relative';
+  document.getElementById('modal').innerHTML = `
+    <button class="modal-close" onclick="closeDetail()">✕</button>
+    <!-- 左欄 -->
+    <div class="modal-left">
+      <div class="modal-id">ID：${c.id} ｜ ${c.purpose}</div>
+      <div class="modal-score-row">
+        <div class="modal-score" style="color:${color}">${c.total}</div>
+        <div class="modal-score-max">/ 850</div>
+      </div>
+      <div class="modal-segment-tag" style="background:${meta.tagBg};color:${meta.color};border:1px solid ${meta.tagBorder}">${c.segment}</div>
+      <div class="field-list">
+        ${fields.map(f => `
+          <div class="field-row">
+            <div class="field-icon">${f.icon}</div>
+            <div class="field-name">${f.name}</div>
+            <div class="field-val">${f.val}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <!-- 右欄 -->
+    <div class="modal-right">
+      ${notesBox}
+      ${formulaBox}
+      ${buildSavingsBox(c)}
+      <div class="reco-box">
+        <div class="reco-label">建議行動</div>
+        ${c.recommendation || '無'}
+      </div>
+      <div style="margin-top:10px;font-size:10px;color:var(--muted);text-align:center;">金額原幣USD，以1USD≈NT$30換算</div>
+    </div>
+  `;
+}
+
+function closeDetail() {
+  document.getElementById('overlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════
+// 分析圖表彈窗
+// ═══════════════════════════════════════
+function openChartModal() {
+  document.getElementById('chartOverlay').classList.add('open');
+  if (!window._chartsDrawn) { drawAllCharts(); window._chartsDrawn = true; }
+}
+function closeChartModal() {
+  document.getElementById('chartOverlay').classList.remove('open');
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs) {
+  const e = document.createElementNS(SVG_NS, tag);
+  Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
+  return e;
+}
+function svgTxt(content, attrs) {
+  const e = svgEl('text', attrs);
+  e.textContent = content;
+  return e;
+}
+
+function drawAllCharts() {
+  // P15 違約率折線
+  drawLine('svgDefault',
+    [{data:[26.3,27.9,29.1,31.3,33.0,34.1], color:'#ff4757'},
+     {data:[21.1,20.8,20.7,20.8,20.9,20.9], color:'#00d4a0', dash:true}],
+    15, 40, v => v.toFixed(1)+'%'
+  );
+  // P15 欠款率折線
+  drawLine('svgDebt',
+    [{data:[0.93,0.93,0.93,0.93,0.92,0.92], color:'#ff4757'},
+     {data:[0.40,0.41,0.43,0.45,0.47,0.47], color:'#00d4a0', dash:true}],
+    0.2, 1.05, v => v.toFixed(2)
+  );
+  // P16 信用等級違約率
+  drawGradeBars();
+  // P17 用途違約橫條
+  drawPurposeBars();
+}
+
+function drawLine(id, series, yMin, yMax, fmt) {
+  const svg = document.getElementById(id);
+  if (!svg) return;
+  const W = 320, H = 150;
+  const P = {t:18, r:20, b:28, l:38};
+  const cW = W-P.l-P.r, cH = H-P.t-P.b;
+  const months = ['1月','2月','3月','4月','5月','6月'];
+  function xP(i){ return P.l + i/(5)*cW; }
+  function yP(v){ return P.t + cH - (v-yMin)/(yMax-yMin)*cH; }
+  // grid
+  for(let i=0;i<=3;i++){
+    const v = yMin + (yMax-yMin)*i/3;
+    const y = yP(v);
+    svg.appendChild(svgEl('line',{x1:P.l,y1:y,x2:P.l+cW,y2:y,stroke:'#2a2a38','stroke-width':1}));
+    svg.appendChild(svgTxt(fmt(v),{x:P.l-4,y:y+3.5,'text-anchor':'end',fill:'#6b6b85','font-size':'8','font-family':'DM Sans'}));
+  }
+  months.forEach((m,i)=>svg.appendChild(svgTxt(m,{x:xP(i),y:H-4,'text-anchor':'middle',fill:'#6b6b85','font-size':'8','font-family':'DM Sans'})));
+  series.forEach(s=>{
+    const d = s.data.map((v,i)=>`${i===0?'M':'L'}${xP(i)},${yP(v)}`).join(' ');
+    svg.appendChild(svgEl('path',{d, fill:'none', stroke:s.color,'stroke-width':2,'stroke-linecap':'round','stroke-linejoin':'round',...(s.dash?{'stroke-dasharray':'5,3'}:{})}));
+    s.data.forEach((v,i)=>{
+      svg.appendChild(svgEl('circle',{cx:xP(i),cy:yP(v),r:3,fill:s.color}));
+      svg.appendChild(svgTxt(fmt(v),{x:xP(i),y:yP(v)-6,'text-anchor':'middle',fill:s.color,'font-size':'8','font-weight':'700','font-family':'DM Sans'}));
+    });
+  });
+}
+
+function drawGradeBars() {
+  const wrap = document.getElementById('gradeWrap');
+  if (!wrap) return;
+  const grades = [{g:'A',v:1.8,c:'#4d9de0'},{g:'B',v:3.7,c:'#52b69a'},{g:'C',v:5.1,c:'#76c893'},{g:'D',v:7.5,c:'#ffd166'},{g:'E',v:8.9,c:'#ff8c42'},{g:'F',v:12.7,c:'#e76f51'},{g:'G',v:14.4,c:'#c2386b'}];
+  wrap.innerHTML = grades.map(g=>`
+    <div class="chbar">
+      <div class="chbar-name">${g.g}</div>
+      <div class="chbar-track"><div class="chbar-fill" style="width:${(g.v/15)*100}%;background:${g.c}"><span>${g.v}%</span></div></div>
+    </div>`).join('');
+}
+
+function drawPurposeBars() {
+  const wrap = document.getElementById('purposeWrap');
+  if (!wrap) return;
+  const data = [
+    {n:'債務整合',v:27599,c:'#c2386b'},{n:'信用卡',v:7826,c:'#e76f51'},{n:'其他',v:2936,c:'#ff8c42'},
+    {n:'房屋裝修',v:2269,c:'#ffd166'},{n:'小型創業',v:1371,c:'#7c6fff'},{n:'大額採購',v:874,c:'#4d9de0'},
+    {n:'醫療',v:569,c:'#52b69a'},{n:'汽車',v:448,c:'#00d4a0'}
+  ];
+  wrap.innerHTML = data.map(d=>`
+    <div class="chbar">
+      <div class="chbar-name">${d.n}</div>
+      <div class="chbar-track"><div class="chbar-fill" style="width:${(d.v/27599)*100}%;background:${d.c}"><span>${d.v.toLocaleString()}</span></div></div>
+    </div>`).join('');
+}
+
+// 初始載入
+selectSegment('premium');
+</script>
+</body>
+</html>
