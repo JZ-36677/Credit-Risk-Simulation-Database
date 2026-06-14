@@ -221,6 +221,8 @@ def get_recommendation(segment, row, total, late_score):
         return '目前信用狀況偏弱，建議主動提供整合型貸款方案，協助改善負債結構'
 
     if segment == '優質':
+        if revol_bal == 0:
+            return '信用條件優良且無循環負債，屬高潛力開發客戶。建議一：主動邀約備用週轉金信貸（低利率、彈性動支），提前建立授信往來關係；建議二：安排理財專員接觸，推介基金定期定額或結構型商品，擴大手續費收入來源'
         if annual_inc > 0 and (revol_bal / annual_inc) > 0.3:
             return '該客戶循環餘額占年收入比重偏高，長期以循環信用週轉將增加未來違約機率，建議轉介信貸固定攤還，降低portfolio風險'
         return '信用狀況優良，循環餘額占年收入比重合理，建議維持現狀並持續觀察'
