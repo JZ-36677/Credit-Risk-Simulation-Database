@@ -292,16 +292,37 @@
   .db-loading,.db-empty{padding:32px;text-align:center;color:var(--muted);font-size:13px;}
 
   /* 客戶詳細彈窗 */
-  .detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:400;padding:16px;}
+  .detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:400;padding:12px;}
   .detail-overlay.open{display:flex;}
   .detail-modal{
-    background:var(--card);border:1px solid var(--border);border-radius:20px;padding:22px;
-    width:min(96vw,880px);height:min(88vh,580px);
+    background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;
+    width:min(96vw,880px);height:min(92vh,580px);
     display:grid;grid-template-columns:210px 1fr;gap:16px;
     position:relative;overflow:hidden;
   }
-  .dm-left{display:flex;flex-direction:column;overflow:hidden;}
-  .dm-right{display:flex;flex-direction:column;gap:0;overflow:hidden;}
+  @media(max-width:640px){
+    .detail-modal{
+      grid-template-columns:1fr;
+      height:90vh;
+      overflow-y:auto;
+      padding:16px;
+    }
+    .dm-left{overflow:visible;}
+    .dm-right{overflow:visible;}
+    .detail-score{font-size:40px;}
+    .db-title{font-size:18px !important;letter-spacing:1px;}
+    .db-header{flex-direction:column !important;gap:10px;}
+    .db-header button{margin-right:0 !important;align-self:flex-start;}
+    .db-modal{padding:16px 14px !important;border-radius:16px;}
+    .dist-num{font-size:22px;}
+    .db-table thead th:nth-child(4),
+    .db-table tbody td:nth-child(4),
+    .db-table thead th:nth-child(5),
+    .db-table tbody td:nth-child(5),
+    .db-table thead th:nth-child(6),
+    .db-table tbody td:nth-child(6){display:none;}
+    .db-reco{max-width:120px;}
+  }
   .detail-close{float:right;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;}
   .detail-id{font-family:monospace;font-size:11px;color:var(--muted);margin-bottom:4px;}
   .detail-score{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:2px;}
@@ -901,7 +922,7 @@ function toggleFico(btn){const el=document.getElementById('ficoLinks');el.classL
 // ═══════════════════════════════════════════
 //  匯入資料庫 功能
 // ═══════════════════════════════════════════
-const API_BASE = 'https://crest-nutrition-baths-recreational.trycloudflare.com';
+const API_BASE = 'http://35.202.196.184:5000';
 const FX = 30;
 const TOTAL = 887379;
 const DIST = { premium:321503, high_risk:31336, default:55470, normal:479070 };
@@ -1097,6 +1118,11 @@ updateBreakdown();
 .cm-insight strong{color:var(--text);}
 .cm-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media(max-width:700px){.cm-grid2{grid-template-columns:1fr;}}
+@media(max-width:640px){
+  .chart-modal{padding:16px;}
+  .cm-title{font-size:16px;}
+  .cm-card{padding:12px;}
+}
 .cm-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;}
 .cm-card-label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:14px;}
 .cm-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
