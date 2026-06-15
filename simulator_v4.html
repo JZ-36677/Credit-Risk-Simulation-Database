@@ -1087,11 +1087,42 @@ function renderDetail(c){
         <div class="dfield-row"><div class="dfield-icon">📊</div><div class="dfield-name">循環餘額</div><div class="dfield-val" style="font-size:11px;">NT$${fmtM(c.revol_bal)}</div></div>
         <div class="dfield-row"><div class="dfield-icon">🎯</div><div class="dfield-name">貸款狀態</div><div class="dfield-val" style="font-size:10px;">${c.loan_status||'—'}</div></div>
         <div class="dfield-row"><div class="dfield-icon">📱</div><div class="dfield-name">聯絡電話</div><div class="dfield-val" style="font-size:11px;">${genUSPhone(c.id)}</div></div>
-        <div class="dfield-row"><div class="dfield-icon">📱</div><div class="dfield-name">聯絡電話</div><div class="dfield-val" style="font-size:11px;">${genUSPhone(c.id)}</div></div>
       </div>
     </div>
     <!-- 右欄：notes+formula+save+reco -->
     <div class="dm-right">
+
+      <!-- 評分量尺 -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:5px;font-weight:600;">📊 評分位置</div>
+        <div style="position:relative;height:8px;border-radius:8px;background:linear-gradient(90deg,#ff4757 0%,#ff8c42 25%,#ffd166 50%,#00d4a0 75%,#00d4a0 100%);margin-bottom:4px;">
+          <div style="position:absolute;top:-4px;width:4px;height:16px;background:white;border-radius:2px;box-shadow:0 0 4px rgba(0,0,0,0.5);transform:translateX(-50%);left:${Math.round(((c.total-300)/550)*100)}%;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);">
+          <span>300</span><span style="color:#ff8c42">580</span><span style="color:#ffd166">670</span><span style="color:#00d4a0">740</span><span>850</span>
+        </div>
+      </div>
+      <!-- 五因子迷你圖 -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;font-weight:600;">⚖️ 五因子貢獻</div>
+        ${[
+          {n:'還款紀錄',v:c.late_score,max:0,min:-193,c:'#7c6fff'},
+          {n:'使用率',v:c.util_score-620,max:165,min:0,c:'#00d4a0'},
+          {n:'信用年齡',v:c.age_score,max:20,min:-63,c:'#ffd166'},
+          {n:'信用種類',v:c.type_score,max:30,min:-25,c:'#ff8c42'},
+          {n:'新申請',v:c.inq_score,max:15,min:-39,c:'#ff4757'}
+        ].map(f=>{
+          const range=f.max-f.min;
+          const pct=Math.round(((f.v-f.min)/range)*100);
+          return \`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10px;">
+            <div style="width:52px;color:var(--muted);flex-shrink:0;">\${f.n}</div>
+            <div style="flex:1;height:6px;background:var(--border);border-radius:4px;overflow:hidden;">
+              <div style="width:\${pct}%;height:100%;background:\${f.c};border-radius:4px;"></div>
+            </div>
+            <div style="width:28px;text-align:right;color:\${f.c};font-family:'Bebas Neue',sans-serif;font-size:11px;">\${f.v>=0?'+':''}\${f.v}</div>
+          </div>\`;
+        }).join('')}
+      </div>
       ${notes.length?`<div class="note-list" style="margin-bottom:8px;">${notes.map(n=>`<div class="note-item ${n.type}"><div class="note-icon">${n.icon}</div><div>${n.text}</div></div>`).join('')}</div>`:''}
       <div class="dfm-box" style="margin-bottom:8px;font-size:11px;line-height:1.7;">
         <div class="dfm-title">📐 評分組成</div>
