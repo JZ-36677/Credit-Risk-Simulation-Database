@@ -1027,6 +1027,14 @@ async function showDetail(id){
 
 function closeDetail(){ document.getElementById('detailOverlay').classList.remove('open'); }
 
+
+function genUSPhone(id){
+  const seed = parseInt(String(id).slice(-6)) || 123456;
+  const area = 200 + (seed % 600);
+  const mid = 200 + ((seed*7) % 600);
+  const last = 1000 + ((seed*13) % 9000);
+  return `(${area}) ${mid}-${last}`;
+}
 function ageLabel(s){ return{'-63':'信用年齡<1年','-35':'1–3年','-15':'3–7年','0':'7–15年','20':'>15年'}[String(s)]||`年齡子分數${s}`; }
 function inqLabel(s){ return{'15':'近6月查詢0次','0':'查詢1次','-15':'2–3次','-27':'4–5次','-39':'≥6次'}[String(s)]||`查詢子分數${s}`; }
 
@@ -1078,6 +1086,8 @@ function renderDetail(c){
         <div class="dfield-row"><div class="dfield-icon">💰</div><div class="dfield-name">年收入</div><div class="dfield-val" style="font-size:11px;">NT$${fmtM(c.annual_inc)}</div></div>
         <div class="dfield-row"><div class="dfield-icon">📊</div><div class="dfield-name">循環餘額</div><div class="dfield-val" style="font-size:11px;">NT$${fmtM(c.revol_bal)}</div></div>
         <div class="dfield-row"><div class="dfield-icon">🎯</div><div class="dfield-name">貸款狀態</div><div class="dfield-val" style="font-size:10px;">${c.loan_status||'—'}</div></div>
+        <div class="dfield-row"><div class="dfield-icon">📱</div><div class="dfield-name">聯絡電話</div><div class="dfield-val" style="font-size:11px;">${genUSPhone(c.id)}</div></div>
+        <div class="dfield-row"><div class="dfield-icon">📱</div><div class="dfield-name">聯絡電話</div><div class="dfield-val" style="font-size:11px;">${genUSPhone(c.id)}</div></div>
       </div>
     </div>
     <!-- 右欄：notes+formula+save+reco -->
