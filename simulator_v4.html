@@ -1008,7 +1008,9 @@ async function dbSearchCustomer(){
     const c=await res.json();
     renderDetail(c);
   }catch(err){
-    document.getElementById('detailModal').innerHTML=`<button class="detail-close" onclick="closeDetail()">✕</button><div class="db-empty">${err.message}</div>`;
+    const _bg=segBg[c.segment]||'rgba(124,111,255,0.1)';
+  const _bd=segBorder[c.segment]||'rgba(124,111,255,0.2)';
+  document.getElementById('detailModal').innerHTML=`<button class="detail-close" onclick="closeDetail()">✕</button><div class="db-empty">${err.message}</div>`;
   }
 }
 
@@ -1021,7 +1023,9 @@ async function showDetail(id){
     const c=await res.json();
     renderDetail(c);
   }catch(err){
-    document.getElementById('detailModal').innerHTML=`<button class="detail-close" onclick="closeDetail()">✕</button><div class="db-empty">載入失敗：${err.message}</div>`;
+    const _bg=segBg[c.segment]||'rgba(124,111,255,0.1)';
+  const _bd=segBorder[c.segment]||'rgba(124,111,255,0.2)';
+  document.getElementById('detailModal').innerHTML=`<button class="detail-close" onclick="closeDetail()">✕</button><div class="db-empty">載入失敗：${err.message}</div>`;
   }
 }
 
@@ -1067,6 +1071,8 @@ function renderDetail(c){
       <div class="save-caveat">＊估算僅供參考，實際利率依銀行審核為準。</div></div>`;
   }
 
+  const _bg=segBg[c.segment]||'rgba(124,111,255,0.1)';
+  const _bd=segBorder[c.segment]||'rgba(124,111,255,0.2)';
   document.getElementById('detailModal').innerHTML=`
     <button class="detail-close" onclick="closeDetail()" style="position:absolute;top:16px;right:16px;">✕</button>
     <!-- 左欄：評分+fields -->
@@ -1076,7 +1082,7 @@ function renderDetail(c){
         <div class="detail-score" style="color:${color};font-size:48px;">${c.total}</div>
         <div style="font-size:14px;color:var(--muted);padding-bottom:6px;">/ 850</div>
       </div>
-      <div class="detail-seg-tag" style="background:${segBg[c.segment]||\`rgba(124,111,255,0.1)\`};color:${sc};border:1px solid ${segBorder[c.segment]||\`rgba(124,111,255,0.2)\`};margin-bottom:12px;">${c.segment}</div>
+      <div class="detail-seg-tag" style="background:${_bg};color:${sc};border:1px solid ${_bd};margin-bottom:12px;">${c.segment}</div>
       <div class="dfield-list" style="gap:5px;">
         <div class="dfield-row"><div class="dfield-icon">📅</div><div class="dfield-name">還款紀錄</div><div class="dfield-val">${c.late_score}</div></div>
         <div class="dfield-row"><div class="dfield-icon">💳</div><div class="dfield-name">使用率 ${c.revol_util}%</div><div class="dfield-val">${c.util_score}</div></div>
@@ -1114,13 +1120,13 @@ function renderDetail(c){
         ].map(f=>{
           const range=f.max-f.min;
           const pct=Math.round(((f.v-f.min)/range)*100);
-          return \`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10px;">
-            <div style="width:52px;color:var(--muted);flex-shrink:0;">\${f.n}</div>
+          return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10px;">
+            <div style="width:52px;color:var(--muted);flex-shrink:0;">${f.n}</div>
             <div style="flex:1;height:6px;background:var(--border);border-radius:4px;overflow:hidden;">
-              <div style="width:\${pct}%;height:100%;background:\${f.c};border-radius:4px;"></div>
+              <div style="width:${pct}%;height:100%;background:${f.c};border-radius:4px;"></div>
             </div>
-            <div style="width:28px;text-align:right;color:\${f.c};font-family:'Bebas Neue',sans-serif;font-size:11px;">\${f.v>=0?'+':''}\${f.v}</div>
-          </div>\`;
+            <div style="width:28px;text-align:right;color:${f.c};font-family:'Bebas Neue',sans-serif;font-size:11px;">${f.v>=0?'+':''}${f.v}</div>
+          </div>`;
         }).join('')}
       </div>
       ${notes.length?`<div class="note-list" style="margin-bottom:8px;">${notes.map(n=>`<div class="note-item ${n.type}"><div class="note-icon">${n.icon}</div><div>${n.text}</div></div>`).join('')}</div>`:''}
