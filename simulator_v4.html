@@ -1076,7 +1076,7 @@ function renderDetail(c){
         <div class="detail-score" style="color:${color};font-size:48px;">${c.total}</div>
         <div style="font-size:14px;color:var(--muted);padding-bottom:6px;">/ 850</div>
       </div>
-      <div class="detail-seg-tag" style="background:${segBg[c.segment]||'rgba(124,111,255,0.1)'};color:${sc};border:1px solid ${segBorder[c.segment]||'rgba(124,111,255,0.2)'};margin-bottom:12px;">${c.segment}</div>
+      <div class="detail-seg-tag" style="background:${segBg[c.segment]||\`rgba(124,111,255,0.1)\`};color:${sc};border:1px solid ${segBorder[c.segment]||\`rgba(124,111,255,0.2)\`};margin-bottom:12px;">${c.segment}</div>
       <div class="dfield-list" style="gap:5px;">
         <div class="dfield-row"><div class="dfield-icon">📅</div><div class="dfield-name">還款紀錄</div><div class="dfield-val">${c.late_score}</div></div>
         <div class="dfield-row"><div class="dfield-icon">💳</div><div class="dfield-name">使用率 ${c.revol_util}%</div><div class="dfield-val">${c.util_score}</div></div>
