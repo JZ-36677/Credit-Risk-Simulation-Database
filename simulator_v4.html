@@ -967,7 +967,7 @@ async function loadTop100(seg){
   const apiSeg = seg==='default'?'default':seg; // premium/high_risk/default
   document.getElementById('dbTableBody').innerHTML=`<tr><td colspan="7" class="db-loading">載入中...</td></tr>`;
   try{
-    const res=await fetch(`${API_BASE}/api/top100/${apiSeg}`);
+    const res=await fetch(`${API_BASE}/api/top100/${apiSeg}`, {headers:{'ngrok-skip-browser-warning':'1'}});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const rows=await res.json();
     dbData[seg]=rows;
@@ -1003,7 +1003,7 @@ async function dbSearchCustomer(){
   document.getElementById('detailOverlay').classList.add('open');
   document.getElementById('detailModal').innerHTML='<button class="detail-close" onclick="closeDetail()">✕</button><div class="db-loading">查詢中...</div>';
   try{
-    const res=await fetch(`${API_BASE}/api/customer/${id}`);
+    const res=await fetch(`${API_BASE}/api/customer/${id}`, {headers:{'ngrok-skip-browser-warning':'1'}});
     if(!res.ok)throw new Error(`找不到客戶 ID: ${id}`);
     const c=await res.json();
     renderDetail(c);
@@ -1016,7 +1016,7 @@ async function showDetail(id){
   document.getElementById('detailOverlay').classList.add('open');
   document.getElementById('detailModal').innerHTML='<button class="detail-close" onclick="closeDetail()">✕</button><div class="db-loading">載入中...</div>';
   try{
-    const res=await fetch(`${API_BASE}/api/customer/${id}`);
+    const res=await fetch(`${API_BASE}/api/customer/${id}`, {headers:{'ngrok-skip-browser-warning':'1'}});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const c=await res.json();
     renderDetail(c);
