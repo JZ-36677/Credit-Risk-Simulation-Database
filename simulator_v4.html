@@ -1118,7 +1118,7 @@ function renderDetail(c){
         <div style="font-size:10px;color:var(--muted);margin-bottom:6px;font-weight:600;">⚖️ 五因子貢獻</div>
         ${[
           {n:'還款紀錄',v:c.late_score,max:0,min:-193,c:'#7c6fff'},
-          {n:'使用率',v:c.util_score-620,max:165,min:0,c:'#00d4a0'},
+          {n:'使用率',v:c.util_score,max:785,min:620,c:'#00d4a0'},
           {n:'信用年齡',v:c.age_score,max:20,min:-63,c:'#ffd166'},
           {n:'信用種類',v:c.type_score,max:30,min:-25,c:'#ff8c42'},
           {n:'新申請',v:c.inq_score,max:15,min:-39,c:'#ff4757'}
@@ -1130,7 +1130,7 @@ function renderDetail(c){
             <div style="flex:1;height:6px;background:var(--border);border-radius:4px;overflow:hidden;">
               <div style="width:${pct}%;height:100%;background:${f.c};border-radius:4px;"></div>
             </div>
-            <div style="width:28px;text-align:right;color:${f.c};font-family:'Bebas Neue',sans-serif;font-size:11px;">${f.v>=0?'+':''}${f.v}</div>
+            <div style="width:28px;text-align:right;color:${f.c};font-family:'Bebas Neue',sans-serif;font-size:11px;">${f.n==='使用率'?f.v:(f.v>=0?'+':'')+f.v}</div>
           </div>`;
         }).join('')}
       </div>
